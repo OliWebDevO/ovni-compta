@@ -1,0 +1,499 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Download,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  BarChart3,
+} from 'lucide-react';
+import { bilansAnnuels, bilansMensuels2024 } from '@/data/mock';
+import { formatCurrency, getSoldeColor, MOIS } from '@/lib/utils';
+import { TEXT_COLORS } from '@/lib/colors';
+import {
+  ModernTooltip,
+  ChartGradients,
+  MODERN_COLORS,
+  modernAxisConfig,
+  modernGridConfig,
+  modernDotConfig,
+  modernActiveDotConfig,
+} from '@/components/ui/chart-components';
+import { SectionHeader } from '@/components/ui/section-header';
+import { PageHeader } from '@/components/ui/page-header';
+import { IllustrationChart, IllustrationWallet } from '@/components/illustrations';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Legend,
+  AreaChart,
+  Area,
+} from 'recharts';
+
+const annees = bilansAnnuels.map((b) => b.annee);
+
+export default function BilansPage() {
+  const [selectedYear, setSelectedYear] = useState<string>('2024');
+
+  const currentBilan = bilansAnnuels.find(
+    (b) => b.annee === parseInt(selectedYear)
+  );
+
+  const monthlyDataForChart = bilansMensuels2024.map((b) => ({
+    mois: MOIS[b.mois - 1].slice(0, 3),
+    credit: b.total_credit,
+    debit: b.total_debit,
+    solde: b.solde,
+  }));
+
+  const cumulativeData = bilansMensuels2024.reduce(
+    (acc, b, i) => {
+      const prev = i > 0 ? acc[i - 1] : { cumulCredit: 0, cumulDebit: 0, cumulSolde: 0 };
+      acc.push({
+        mois: MOIS[b.mois - 1].slice(0, 3),
+        cumulCredit: prev.cumulCredit + b.total_credit,
+        cumulDebit: prev.cumulDebit + b.total_debit,
+        cumulSolde: prev.cumulSolde + b.solde,
+      });
+      return acc;
+    },
+    [] as { mois: string; cumulCredit: number; cumulDebit: number; cumulSolde: number }[]
+  );
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header avec gradient */}
+      <PageHeader
+        title="Bilans"
+        description="Analyse financière annuelle et mensuelle"
+        gradient="from-amber-500 via-orange-500 to-red-500"
+        icon={<BarChart3 className="h-7 w-7 text-white" />}
+      >
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-full sm:w-[120px] bg-white/20 border-white/30 text-white shadow-lg">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {annees.map((annee) => (
+              <SelectItem key={annee} value={annee.toString()}>
+                {annee}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 border-white/30 shadow-lg">
+          <Download className="mr-2 h-4 w-4" />
+          Exporter PDF
+        </Button>
+      </PageHeader>
+
+      {/* Section header - Résumé */}
+      <SectionHeader
+        icon={<IllustrationWallet size={60} />}
+        title="Résumé annuel"
+        description={`Données financières pour ${selectedYear}`}
+      />
+
+      {/* Year Summary Cards */}
+      {currentBilan && (
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Card className="card-hover bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Année</CardTitle>
+              <Calendar className="h-4 w-4 text-amber-600" />
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold text-amber-700">{currentBilan.annee}</div>
+              <p className="text-xs text-muted-foreground">
+                {currentBilan.nb_transactions} transactions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Crédits</CardTitle>
+              <TrendingUp className={`h-4 w-4 ${TEXT_COLORS.credit}`} />
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className={`text-xl sm:text-2xl font-bold ${TEXT_COLORS.credit}`}>
+                {formatCurrency(currentBilan.total_credit)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Débits</CardTitle>
+              <TrendingDown className={`h-4 w-4 ${TEXT_COLORS.debit}`} />
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className={`text-xl sm:text-2xl font-bold ${TEXT_COLORS.debit}`}>
+                {formatCurrency(currentBilan.total_debit)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Solde Annuel</CardTitle>
+              <BarChart3 className="h-4 w-4 text-violet-600" />
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div
+                className={`text-xl sm:text-2xl font-bold ${getSoldeColor(
+                  currentBilan.solde
+                )}`}
+              >
+                {formatCurrency(currentBilan.solde)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Section header - Graphiques */}
+      <SectionHeader
+        icon={<IllustrationChart size={60} />}
+        title="Analyse graphique"
+        description="Visualisation des données financières"
+      />
+
+      <Tabs defaultValue="mensuel" className="space-y-4">
+        <TabsList className="w-full sm:w-auto flex overflow-x-auto">
+          <TabsTrigger value="mensuel" className="flex-1 sm:flex-none text-xs sm:text-sm">Vue Mensuelle</TabsTrigger>
+          <TabsTrigger value="annuel" className="flex-1 sm:flex-none text-xs sm:text-sm">Comparaison Annuelle</TabsTrigger>
+          <TabsTrigger value="cumul" className="flex-1 sm:flex-none text-xs sm:text-sm">Cumul Progressif</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mensuel" className="space-y-4">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+            {/* Monthly Bar Chart */}
+            <Card className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 border-amber-100/50">
+              <CardHeader>
+                <CardTitle>Crédits vs Débits ({selectedYear})</CardTitle>
+                <CardDescription>Comparaison mensuelle</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyDataForChart} barGap={2}>
+                    <ChartGradients />
+                    <CartesianGrid {...modernGridConfig} />
+                    <XAxis dataKey="mois" {...modernAxisConfig} />
+                    <YAxis {...modernAxisConfig} />
+                    <Tooltip content={<ModernTooltip />} />
+                    <Bar
+                      dataKey="credit"
+                      fill="url(#creditBarGradient)"
+                      name="Crédits"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={800}
+                    />
+                    <Bar
+                      dataKey="debit"
+                      fill="url(#debitBarGradient)"
+                      name="Débits"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={800}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Solde Chart */}
+            <Card className="bg-gradient-to-br from-orange-50/50 to-red-50/40 border-orange-100/50">
+              <CardHeader>
+                <CardTitle>Solde Mensuel ({selectedYear})</CardTitle>
+                <CardDescription>Évolution du solde par mois</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={monthlyDataForChart}>
+                    <ChartGradients />
+                    <CartesianGrid {...modernGridConfig} />
+                    <XAxis dataKey="mois" {...modernAxisConfig} />
+                    <YAxis {...modernAxisConfig} />
+                    <Tooltip content={<ModernTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="solde"
+                      stroke="url(#soldeStroke)"
+                      strokeWidth={2.5}
+                      fill="url(#soldeGradient)"
+                      name="Solde"
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Table */}
+          <Card className="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50">
+            <CardHeader>
+              <CardTitle>Détail Mensuel {selectedYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mois</TableHead>
+                    <TableHead className="text-right">Crédits</TableHead>
+                    <TableHead className="text-right">Débits</TableHead>
+                    <TableHead className="text-right">Solde</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bilansMensuels2024.map((bilan) => (
+                    <TableRow key={bilan.mois}>
+                      <TableCell className="font-medium">
+                        {MOIS[bilan.mois - 1]}
+                      </TableCell>
+                      <TableCell className={`text-right ${TEXT_COLORS.credit}`}>
+                        {formatCurrency(bilan.total_credit)}
+                      </TableCell>
+                      <TableCell className={`text-right ${TEXT_COLORS.debit}`}>
+                        {formatCurrency(bilan.total_debit)}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-medium ${getSoldeColor(
+                          bilan.solde
+                        )}`}
+                      >
+                        {formatCurrency(bilan.solde)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell>TOTAL</TableCell>
+                    <TableCell className={`text-right ${TEXT_COLORS.credit}`}>
+                      {formatCurrency(
+                        bilansMensuels2024.reduce((s, b) => s + b.total_credit, 0)
+                      )}
+                    </TableCell>
+                    <TableCell className={`text-right ${TEXT_COLORS.debit}`}>
+                      {formatCurrency(
+                        bilansMensuels2024.reduce((s, b) => s + b.total_debit, 0)
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right ${getSoldeColor(
+                        bilansMensuels2024.reduce((s, b) => s + b.solde, 0)
+                      )}`}
+                    >
+                      {formatCurrency(
+                        bilansMensuels2024.reduce((s, b) => s + b.solde, 0)
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="annuel" className="space-y-4">
+          <div className="grid gap-4">
+            {/* Annual Comparison Chart */}
+            <Card className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 border-amber-100/50">
+              <CardHeader>
+                <CardTitle>Comparaison Annuelle</CardTitle>
+                <CardDescription>
+                  Évolution des crédits, débits et soldes par année
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={bilansAnnuels} barGap={3}>
+                    <ChartGradients />
+                    <CartesianGrid {...modernGridConfig} />
+                    <XAxis dataKey="annee" {...modernAxisConfig} />
+                    <YAxis {...modernAxisConfig} />
+                    <Tooltip content={<ModernTooltip />} />
+                    <Bar
+                      dataKey="total_credit"
+                      fill="url(#creditBarGradient)"
+                      name="Crédits"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={800}
+                    />
+                    <Bar
+                      dataKey="total_debit"
+                      fill="url(#debitBarGradient)"
+                      name="Débits"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={800}
+                    />
+                    <Bar
+                      dataKey="solde"
+                      fill="url(#soldeBarGradient)"
+                      name="Solde"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={800}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Annual Table */}
+          <Card className="bg-gradient-to-br from-orange-50/40 to-red-50/30 border-orange-100/50">
+            <CardHeader>
+              <CardTitle>Récapitulatif par Année</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Année</TableHead>
+                    <TableHead className="text-right">Transactions</TableHead>
+                    <TableHead className="text-right">Crédits</TableHead>
+                    <TableHead className="text-right">Débits</TableHead>
+                    <TableHead className="text-right">Solde</TableHead>
+                    <TableHead>Tendance</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bilansAnnuels.map((bilan, index) => {
+                    const prevBilan = bilansAnnuels[index + 1];
+                    const trend = prevBilan
+                      ? bilan.solde - prevBilan.solde
+                      : 0;
+
+                    return (
+                      <TableRow key={bilan.annee}>
+                        <TableCell className="font-medium">
+                          {bilan.annee}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {bilan.nb_transactions}
+                        </TableCell>
+                        <TableCell className={`text-right ${TEXT_COLORS.credit}`}>
+                          {formatCurrency(bilan.total_credit)}
+                        </TableCell>
+                        <TableCell className={`text-right ${TEXT_COLORS.debit}`}>
+                          {formatCurrency(bilan.total_debit)}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${getSoldeColor(
+                            bilan.solde
+                          )}`}
+                        >
+                          {formatCurrency(bilan.solde)}
+                        </TableCell>
+                        <TableCell>
+                          {prevBilan && (
+                            <Badge
+                              variant={trend >= 0 ? 'default' : 'destructive'}
+                              className="flex items-center gap-1 w-fit"
+                            >
+                              {trend >= 0 ? (
+                                <TrendingUp className="h-3 w-3" />
+                              ) : (
+                                <TrendingDown className="h-3 w-3" />
+                              )}
+                              {trend >= 0 ? '+' : ''}
+                              {formatCurrency(trend)}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cumul" className="space-y-4">
+          <Card className="bg-gradient-to-br from-amber-50/50 to-red-50/40 border-amber-100/50">
+            <CardHeader>
+              <CardTitle>Cumul Progressif ({selectedYear})</CardTitle>
+              <CardDescription>
+                Évolution cumulative tout au long de l&apos;année
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={cumulativeData}>
+                  <ChartGradients />
+                  <CartesianGrid {...modernGridConfig} />
+                  <XAxis dataKey="mois" {...modernAxisConfig} />
+                  <YAxis {...modernAxisConfig} />
+                  <Tooltip content={<ModernTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="cumulCredit"
+                    stroke={MODERN_COLORS.credit.main}
+                    strokeWidth={2.5}
+                    name="Crédits cumulés"
+                    dot={{ ...modernDotConfig, stroke: MODERN_COLORS.credit.main }}
+                    activeDot={{ ...modernActiveDotConfig, stroke: MODERN_COLORS.credit.main }}
+                    animationDuration={1200}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cumulDebit"
+                    stroke={MODERN_COLORS.debit.main}
+                    strokeWidth={2.5}
+                    name="Débits cumulés"
+                    dot={{ ...modernDotConfig, stroke: MODERN_COLORS.debit.main }}
+                    activeDot={{ ...modernActiveDotConfig, stroke: MODERN_COLORS.debit.main }}
+                    animationDuration={1200}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cumulSolde"
+                    stroke={MODERN_COLORS.solde.main}
+                    strokeWidth={3}
+                    name="Solde cumulé"
+                    dot={{ ...modernDotConfig, stroke: MODERN_COLORS.solde.main }}
+                    activeDot={{ ...modernActiveDotConfig, stroke: MODERN_COLORS.solde.main }}
+                    animationDuration={1200}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
