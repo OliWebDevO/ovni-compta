@@ -38,6 +38,14 @@ const categoryColors: Record<RessourceCategorie, {
   iconBg: string;
   shadow: string;
   tabActive: string;
+  // Card specific
+  articleBg: string;
+  articleShadow: string;
+  articleHoverOverlay: string;
+  articleAccent: string;
+  articleTextHover: string;
+  articleLinkText: string;
+  articleChevronHover: string;
 }> = {
   guide: {
     bg: 'bg-emerald-50',
@@ -47,6 +55,13 @@ const categoryColors: Record<RessourceCategorie, {
     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
     shadow: 'shadow-emerald-100/50',
     tabActive: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md',
+    articleBg: 'bg-gradient-to-br from-white via-emerald-50/20 to-teal-50/30',
+    articleShadow: 'shadow-emerald-100/50',
+    articleHoverOverlay: 'bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5',
+    articleAccent: 'bg-gradient-to-br from-emerald-400 to-teal-500',
+    articleTextHover: 'group-hover:text-emerald-700',
+    articleLinkText: 'text-emerald-600 group-hover:text-emerald-700',
+    articleChevronHover: 'group-hover:bg-emerald-100 group-hover:text-emerald-500',
   },
   juridique: {
     bg: 'bg-blue-50',
@@ -56,6 +71,13 @@ const categoryColors: Record<RessourceCategorie, {
     iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600',
     shadow: 'shadow-blue-100/50',
     tabActive: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md',
+    articleBg: 'bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30',
+    articleShadow: 'shadow-blue-100/50',
+    articleHoverOverlay: 'bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5',
+    articleAccent: 'bg-gradient-to-br from-blue-400 to-indigo-500',
+    articleTextHover: 'group-hover:text-blue-700',
+    articleLinkText: 'text-blue-600 group-hover:text-blue-700',
+    articleChevronHover: 'group-hover:bg-blue-100 group-hover:text-blue-500',
   },
   comptabilite: {
     bg: 'bg-amber-50',
@@ -65,6 +87,13 @@ const categoryColors: Record<RessourceCategorie, {
     iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600',
     shadow: 'shadow-amber-100/50',
     tabActive: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md',
+    articleBg: 'bg-gradient-to-br from-white via-amber-50/20 to-orange-50/30',
+    articleShadow: 'shadow-amber-100/50',
+    articleHoverOverlay: 'bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5',
+    articleAccent: 'bg-gradient-to-br from-amber-400 to-orange-500',
+    articleTextHover: 'group-hover:text-amber-700',
+    articleLinkText: 'text-amber-600 group-hover:text-amber-700',
+    articleChevronHover: 'group-hover:bg-amber-100 group-hover:text-amber-500',
   },
   artistes: {
     bg: 'bg-purple-50',
@@ -74,6 +103,13 @@ const categoryColors: Record<RessourceCategorie, {
     iconBg: 'bg-gradient-to-br from-purple-500 to-fuchsia-600',
     shadow: 'shadow-purple-100/50',
     tabActive: 'bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md',
+    articleBg: 'bg-gradient-to-br from-white via-purple-50/20 to-fuchsia-50/30',
+    articleShadow: 'shadow-purple-100/50',
+    articleHoverOverlay: 'bg-gradient-to-br from-purple-500/5 via-transparent to-fuchsia-500/5',
+    articleAccent: 'bg-gradient-to-br from-purple-400 to-fuchsia-500',
+    articleTextHover: 'group-hover:text-purple-700',
+    articleLinkText: 'text-purple-600 group-hover:text-purple-700',
+    articleChevronHover: 'group-hover:bg-purple-100 group-hover:text-purple-500',
   },
   liens: {
     bg: 'bg-cyan-50',
@@ -83,6 +119,13 @@ const categoryColors: Record<RessourceCategorie, {
     iconBg: 'bg-gradient-to-br from-cyan-500 to-sky-600',
     shadow: 'shadow-cyan-100/50',
     tabActive: 'bg-gradient-to-r from-cyan-500 to-sky-600 text-white shadow-md',
+    articleBg: 'bg-gradient-to-br from-white via-cyan-50/20 to-sky-50/30',
+    articleShadow: 'shadow-cyan-100/50',
+    articleHoverOverlay: 'bg-gradient-to-br from-cyan-500/5 via-transparent to-sky-500/5',
+    articleAccent: 'bg-gradient-to-br from-cyan-400 to-sky-500',
+    articleTextHover: 'group-hover:text-cyan-700',
+    articleLinkText: 'text-cyan-600 group-hover:text-cyan-700',
+    articleChevronHover: 'group-hover:bg-cyan-100 group-hover:text-cyan-500',
   },
 };
 
@@ -95,21 +138,22 @@ function RessourceCard({ ressource }: { ressource: Ressource }) {
         className={cn(
           'group h-full relative overflow-hidden transition-all duration-300 rounded-xl',
           'hover:shadow-xl hover:-translate-y-1',
-          'shadow-md shadow-rose-100/50',
-          'bg-gradient-to-br from-white via-rose-50/20 to-pink-50/30',
-          ressource.important && 'shadow-lg shadow-rose-200/60'
+          'shadow-md',
+          colors.articleShadow,
+          colors.articleBg,
+          ressource.important && 'shadow-lg'
         )}
       >
         {/* Subtle gradient overlay on hover */}
         <div className={cn(
           'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300',
-          'bg-gradient-to-br from-rose-500/5 via-transparent to-fuchsia-500/5'
+          colors.articleHoverOverlay
         )} />
 
         {/* Decorative corner accent */}
         <div className={cn(
           'absolute -top-12 -right-12 w-24 h-24 rounded-full opacity-10 blur-2xl transition-all duration-300',
-          'bg-gradient-to-br from-rose-400 to-pink-500',
+          colors.articleAccent,
           'group-hover:opacity-25 group-hover:scale-150'
         )} />
 
@@ -128,7 +172,7 @@ function RessourceCard({ ressource }: { ressource: Ressource }) {
                 {categoryIcons[ressource.categorie]}
               </div>
               {ressource.important && (
-                <Badge className="bg-gradient-to-r from-rose-500 to-pink-500 text-white border-0 shadow-sm">
+                <Badge className={cn('text-white border-0 shadow-sm', colors.iconBg)}>
                   <Star className="h-3 w-3 mr-1 fill-current" />
                   Essentiel
                 </Badge>
@@ -136,14 +180,15 @@ function RessourceCard({ ressource }: { ressource: Ressource }) {
             </div>
             <div className={cn(
               'flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300',
-              'bg-gray-100/80 group-hover:bg-rose-100',
+              'bg-gray-100/80',
+              colors.articleChevronHover,
               'group-hover:translate-x-1'
             )}>
-              <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-rose-500 transition-colors" />
+              <ChevronRight className="h-4 w-4 text-gray-400 transition-colors" />
             </div>
           </div>
 
-          <h3 className="text-lg mt-4 font-semibold text-gray-900 group-hover:text-rose-700 transition-colors line-clamp-2">
+          <h3 className={cn('text-lg mt-4 font-semibold text-gray-900 transition-colors line-clamp-2', colors.articleTextHover)}>
             {ressource.titre}
           </h3>
           <p className="text-sm text-gray-500 line-clamp-2 mt-1">
@@ -172,7 +217,7 @@ function RessourceCard({ ressource }: { ressource: Ressource }) {
 
           {ressource.url && (
             <div className="mt-4 pt-3 border-t border-gray-100">
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-600 group-hover:text-rose-700">
+              <span className={cn('inline-flex items-center gap-1.5 text-sm font-medium', colors.articleLinkText)}>
                 <ExternalLink className="h-3.5 w-3.5" />
                 Accéder au site
                 <Sparkles className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />

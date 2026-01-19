@@ -94,12 +94,12 @@ const categoryColors: Record<RessourceCategorie, {
     accentBg: 'bg-purple-500',
   },
   liens: {
-    gradient: 'from-slate-500 via-gray-500 to-zinc-500',
-    lightGradient: 'from-slate-50 via-gray-50 to-zinc-50',
-    text: 'text-slate-700',
-    bg: 'bg-slate-100',
-    border: 'border-slate-200',
-    accentBg: 'bg-slate-500',
+    gradient: 'from-cyan-500 via-sky-500 to-blue-500',
+    lightGradient: 'from-cyan-50 via-sky-50 to-blue-50',
+    text: 'text-cyan-700',
+    bg: 'bg-cyan-100',
+    border: 'border-cyan-200',
+    accentBg: 'bg-cyan-500',
   },
 };
 
