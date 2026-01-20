@@ -292,3 +292,331 @@
 .sidebar-no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Print-only elements (hidden on screen, visible in print) */
+.print-only {
+  display: none !important;
+}
+
+/* ============================================
+   7. PRINT STYLES
+   ============================================ */
+
+@media print {
+  /* Force colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Hide non-printable elements - VERY AGGRESSIVE */
+  .no-print,
+  .no-print *,
+  nav,
+  header button,
+  .sidebar,
+  [data-sidebar],
+  [data-sidebar] *,
+  [role="navigation"],
+  [class*="Breadcrumb"],
+  [class*="breadcrumb"],
+  [aria-label="breadcrumb"],
+  [class*="PageHeader"],
+  [class*="SidebarProvider"] > aside,
+  .sticky {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+  }
+
+  /* Hide any parent containers of no-print elements */
+  div:has(> .no-print:only-child),
+  div:has(> header:only-child) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Dashboard specific - hide the floating header with its colored border */
+  [class*="SidebarInset"] > div.sticky,
+  [class*="SidebarInset"] > .no-print,
+  div[class*="sticky"][class*="top-0"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+
+  /* Hide the colored border frame specifically */
+  header[class*="border-"] {
+    display: none !important;
+    border: none !important;
+  }
+
+
+  /* Print title styling */
+  .print-title {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f97316;
+  }
+
+  .print-title h1 {
+    color: #f97316 !important;
+    font-size: 24pt !important;
+    margin-bottom: 8px !important;
+  }
+
+  .print-title h2 {
+    color: #374151 !important;
+    font-size: 16pt !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  /* Body styling for print */
+  body {
+    background: white !important;
+    font-size: 10pt;
+  }
+
+  /* Ensure main content takes full width and starts at top */
+  main {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    padding-top: 0 !important;
+  }
+
+  /* Remove any top padding/margin from first child of main */
+  main > *:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  /* SidebarInset should have no padding in print */
+  [class*="SidebarInset"] {
+    padding: 0 !important;
+  }
+
+  /* ===== SECTION WITH CONTENT - Keep title with its content ===== */
+  /* Use for SMALL sections only - summary cards, tables */
+  .print-section-with-content {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Section header styling for print */
+  .print-section-with-content > div:first-child,
+  .print-section-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 6px 0 !important;
+    margin-bottom: 6px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Section header icons/illustrations - smaller for print */
+  .print-section-with-content > div:first-child svg,
+  .print-section-header svg {
+    width: 28px !important;
+    height: 28px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Section title styling */
+  .print-section-with-content > div:first-child h2,
+  .print-section-header h2 {
+    font-size: 12pt !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide description in section headers for print */
+  .print-section-with-content > div:first-child p,
+  .print-section-header p {
+    display: none !important;
+  }
+
+  /* Hide floating animation div */
+  .print-section-with-content .animate-float,
+  .animate-float {
+    animation: none !important;
+  }
+
+  /* Large sections - DON'T force break-inside: avoid, let content flow naturally */
+  .print-section-large {
+    display: block;
+  }
+
+  /* But the header of large sections should not break from first content */
+  .print-section-large > .print-section-header {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* ===== PREVENT PAGE BREAKS INSIDE ELEMENTS ===== */
+
+  /* Cards - never break inside */
+  .card,
+  [class*="Card"] {
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
+  }
+
+  /* Headings - keep with next content */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Chart containers - never break inside */
+  .recharts-wrapper,
+  .recharts-responsive-container,
+  [class*="recharts"] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
+  }
+
+  /* Tables - avoid breaking rows */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  th, td {
+    border: 1px solid #d1d5db !important;
+    padding: 5px 6px !important;
+    font-size: 9pt !important;
+  }
+
+  /* Grid items - avoid breaking */
+  [class*="grid"] > * {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tabs - hide tab navigation, show content */
+  [role="tablist"],
+  [class*="TabsList"] {
+    display: none !important;
+  }
+
+  [role="tabpanel"],
+  [class*="TabsContent"] {
+    display: block !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Summary cards grid - keep together */
+  [class*="grid-cols"] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Gradient backgrounds - simplify for print */
+  [class*="bg-gradient"] {
+    background: white !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Hide PageHeader completely in print (we have print-title instead) */
+  [class*="PageHeader"] {
+    display: none !important;
+  }
+
+  /* Links */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Hide interactive elements */
+  button:not(.print-keep),
+  select,
+  input,
+  .dropdown,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Badge styling */
+  .badge,
+  [class*="Badge"] {
+    border: 1px solid currentColor !important;
+    background: transparent !important;
+    font-size: 8pt !important;
+    padding: 2px 6px !important;
+  }
+
+  /* Ensure proper spacing between sections */
+  [class*="space-y"] > * + * {
+    margin-top: 10px !important;
+  }
+
+  /* Force page break before specific elements if needed */
+  .print-page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  /* Keep content together */
+  .print-keep-together {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Reduce card padding for print */
+  [class*="CardHeader"],
+  [class*="CardContent"] {
+    padding: 8px 12px !important;
+  }
+
+  /* Chart height reduction for print */
+  .recharts-responsive-container {
+    height: 200px !important;
+    max-height: 200px !important;
+  }
+}

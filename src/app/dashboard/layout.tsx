@@ -141,8 +141,8 @@ export default function DashboardLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="bg-gradient-to-br from-gray-50/80 to-slate-100/80">
-        {/* Floating header container */}
-        <div className="sticky top-0 z-30 p-3 pb-0">
+        {/* Floating header container - Hidden in print */}
+        <div className="sticky top-0 z-30 p-3 pb-0 no-print">
           <header
             className={cn(
               'flex h-14 items-center gap-3 px-4 rounded-2xl',

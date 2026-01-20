@@ -34,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Plus,
   Search,
-  ExternalLink,
+  ChevronRight,
   Calendar,
   Euro,
   FolderKanban,
@@ -236,27 +236,24 @@ export default function ProjetsPage() {
           const budgetUsedCapped = Math.min(budgetUsed, 100);
 
           return (
-            <Card key={projet.id} className="bg-gradient-to-br from-purple-50/50 to-fuchsia-50/50 border-purple-100/50 hover:shadow-md transition-all hover:from-purple-50 hover:to-fuchsia-50">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <Badge variant={getStatutColor(projet.statut)}>
-                      {projet.statut === 'actif'
-                        ? 'Actif'
-                        : projet.statut === 'termine'
-                        ? 'Terminé'
-                        : 'Annulé'}
-                    </Badge>
-                    <CardTitle className="mt-2">{projet.nom}</CardTitle>
-                    <CardDescription>{projet.code}</CardDescription>
+            <Link key={projet.id} href={`/dashboard/projets/${projet.id}`} className="block">
+              <Card className="bg-gradient-to-br from-purple-50/50 to-fuchsia-50/50 border-purple-100/50 hover:shadow-md transition-all hover:from-purple-50 hover:to-fuchsia-50 cursor-pointer h-full">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <Badge variant={getStatutColor(projet.statut)}>
+                        {projet.statut === 'actif'
+                          ? 'Actif'
+                          : projet.statut === 'termine'
+                          ? 'Terminé'
+                          : 'Annulé'}
+                      </Badge>
+                      <CardTitle className="mt-2">{projet.nom}</CardTitle>
+                      <CardDescription>{projet.code}</CardDescription>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                   </div>
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/dashboard/projets/${projet.id}`}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardHeader>
+                </CardHeader>
               <CardContent className="space-y-4">
                 {projet.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2">
@@ -319,6 +316,7 @@ export default function ProjetsPage() {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           );
         })}
       </div>

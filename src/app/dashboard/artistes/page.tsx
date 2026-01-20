@@ -35,7 +35,6 @@ import { Switch } from '@/components/ui/switch';
 import {
   Plus,
   Search,
-  ExternalLink,
   TrendingUp,
   TrendingDown,
   ChevronRight,
@@ -293,7 +292,11 @@ export default function ArtistesPage() {
             </TableHeader>
             <TableBody>
               {filteredArtistes.map((artiste) => (
-                <TableRow key={artiste.id}>
+                <TableRow
+                  key={artiste.id}
+                  className="cursor-pointer hover:bg-indigo-50/50 transition-colors"
+                  onClick={() => window.location.href = `/dashboard/artistes/${artiste.id}`}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
@@ -348,11 +351,7 @@ export default function ArtistesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/artistes/${artiste.id}`}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ))}

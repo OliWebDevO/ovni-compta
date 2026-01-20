@@ -47,7 +47,6 @@ import { Label } from '@/components/ui/label';
 import {
   Plus,
   Search,
-  MoreHorizontal,
   Pencil,
   Trash2,
   Download,
@@ -57,6 +56,7 @@ import {
 } from 'lucide-react';
 import { transactions, artistes, projets, CATEGORIES } from '@/data/mock';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { exportTransactionsToCSV } from '@/lib/export';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
@@ -67,6 +67,7 @@ export default function TransactionsPage() {
   const [filterArtiste, setFilterArtiste] = useState<string>('all');
   const [filterProjet, setFilterProjet] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch = tx.description
@@ -91,7 +92,11 @@ export default function TransactionsPage() {
         gradient="from-emerald-500 via-teal-500 to-cyan-500"
         icon={<Receipt className="h-7 w-7 text-white" />}
       >
-        <Button variant="outline" className="w-full sm:w-auto bg-white/20 border-white/30 text-white hover:bg-white/30 shadow-lg">
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto bg-white/20 border-white/30 text-white hover:bg-white/30 shadow-lg"
+          onClick={() => exportTransactionsToCSV(filteredTransactions, 'transactions')}
+        >
           <Download className="mr-2 h-4 w-4" />
           Exporter CSV
         </Button>
@@ -305,55 +310,55 @@ export default function TransactionsPage() {
           {filteredTransactions.length} transaction(s) trouvée(s)
         </p>
         {filteredTransactions.map((tx) => (
-          <Card key={tx.id} className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                    {tx.artiste && (
-                      <Badge variant="outline" className="text-xs">{tx.artiste.nom}</Badge>
-                    )}
-                    {tx.projet && (
-                      <Badge variant="secondary" className="text-xs">{tx.projet.code}</Badge>
-                    )}
+          <DropdownMenu key={tx.id}>
+            <DropdownMenuTrigger asChild>
+              <Card className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50 cursor-pointer hover:from-teal-50 hover:to-cyan-50 hover:shadow-sm transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+                        {tx.artiste && (
+                          <Badge variant="outline" className="text-xs">{tx.artiste.nom}</Badge>
+                        )}
+                        {tx.projet && (
+                          <Badge variant="secondary" className="text-xs">{tx.projet.code}</Badge>
+                        )}
+                      </div>
+                      <p className="font-medium mt-1 text-sm">{tx.description}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right shrink-0">
+                        {tx.credit > 0 && (
+                          <span className="text-emerald-600 font-semibold">
+                            +{formatCurrency(tx.credit)}
+                          </span>
+                        )}
+                        {tx.debit > 0 && (
+                          <span className="text-rose-500 font-semibold">
+                            -{formatCurrency(tx.debit)}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </div>
                   </div>
-                  <p className="font-medium mt-1 text-sm">{tx.description}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  {tx.credit > 0 && (
-                    <span className="text-emerald-600 font-semibold">
-                      +{formatCurrency(tx.credit)}
-                    </span>
-                  )}
-                  {tx.debit > 0 && (
-                    <span className="text-rose-500 font-semibold">
-                      -{formatCurrency(tx.debit)}
-                    </span>
-                  )}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Modifier
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-rose-500">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Supprimer
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-rose-500">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ))}
       </div>
       )}
@@ -382,7 +387,11 @@ export default function TransactionsPage() {
             </TableHeader>
             <TableBody>
               {filteredTransactions.map((tx) => (
-                <TableRow key={tx.id}>
+                <TableRow
+                  key={tx.id}
+                  className="cursor-pointer hover:bg-teal-50/50 transition-colors"
+                  onClick={() => setOpenDropdownId(openDropdownId === tx.id ? null : tx.id)}
+                >
                   <TableCell className="font-medium">
                     {formatDate(tx.date)}
                   </TableCell>
@@ -420,11 +429,14 @@ export default function TransactionsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
+                    <DropdownMenu
+                      open={openDropdownId === tx.id}
+                      onOpenChange={(open) => setOpenDropdownId(open ? tx.id : null)}
+                    >
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-center">
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>

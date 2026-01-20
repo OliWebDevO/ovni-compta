@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -32,9 +32,12 @@ import {
   TrendingDown,
   Calendar,
   BarChart3,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
-import { bilansAnnuels, bilansMensuels2024 } from '@/data/mock';
+import { bilansAnnuels, bilansMensuels2024, transactions } from '@/data/mock';
 import { formatCurrency, getSoldeColor, MOIS } from '@/lib/utils';
+import { exportBilanToCSV, exportYearTransactionsToCSV } from '@/lib/export';
 import { TEXT_COLORS } from '@/lib/colors';
 import {
   ModernTooltip,
@@ -67,6 +70,42 @@ const annees = bilansAnnuels.map((b) => b.annee);
 
 export default function BilansPage() {
   const [selectedYear, setSelectedYear] = useState<string>('2024');
+  const chartsRef = useRef<HTMLDivElement>(null);
+
+  // Prepare monthly data for export
+  const monthlyDataForExport = bilansMensuels2024.map((b) => ({
+    mois: MOIS[b.mois - 1],
+    total_credit: b.total_credit,
+    total_debit: b.total_debit,
+    solde: b.solde,
+  }));
+
+  // Handle PDF export (print)
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
+  // Handle Excel export of transactions
+  const handleExportExcel = () => {
+    exportYearTransactionsToCSV(transactions, parseInt(selectedYear));
+  };
+
+  // Handle Excel export of bilan summary
+  const handleExportBilanExcel = () => {
+    exportBilanToCSV(monthlyDataForExport, `bilan_mensuel_${selectedYear}`, 'mensuel');
+  };
+
+  // Handle Excel export of annual bilan
+  const handleExportAnnualBilanExcel = () => {
+    const annualData = bilansAnnuels.map((b) => ({
+      annee: b.annee,
+      nb_transactions: b.nb_transactions,
+      total_credit: b.total_credit,
+      total_debit: b.total_debit,
+      solde: b.solde,
+    }));
+    exportBilanToCSV(annualData, 'bilan_annuel', 'annuel');
+  };
 
   const currentBilan = bilansAnnuels.find(
     (b) => b.annee === parseInt(selectedYear)
@@ -95,41 +134,66 @@ export default function BilansPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header avec gradient */}
-      <PageHeader
-        title="Bilans"
-        description="Analyse financière annuelle et mensuelle"
-        gradient="from-amber-500 via-orange-500 to-red-500"
-        icon={<BarChart3 className="h-7 w-7 text-white" />}
-      >
-        <Select value={selectedYear} onValueChange={setSelectedYear}>
-          <SelectTrigger className="w-full sm:w-[120px] bg-white/20 border-white/30 text-white shadow-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {annees.map((annee) => (
-              <SelectItem key={annee} value={annee.toString()}>
-                {annee}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 border-white/30 shadow-lg">
-          <Download className="mr-2 h-4 w-4" />
-          Exporter PDF
-        </Button>
-      </PageHeader>
+      {/* Print Title - Only visible when printing */}
+      <div className="print-only print-title">
+        <h1 className="text-2xl font-bold text-center mb-2">
+          Bilan Comptable O.V.N.I
+        </h1>
+        <h2 className="text-xl text-center text-muted-foreground mb-6">
+          Année : {selectedYear}
+        </h2>
+      </div>
 
-      {/* Section header - Résumé */}
-      <SectionHeader
-        icon={<IllustrationWallet size={60} />}
-        title="Résumé annuel"
-        description={`Données financières pour ${selectedYear}`}
-      />
+      {/* Header avec gradient - Hidden in print */}
+      <div className="no-print">
+        <PageHeader
+          title="Bilans"
+          description="Analyse financière annuelle et mensuelle"
+          gradient="from-amber-500 via-orange-500 to-red-500"
+          icon={<BarChart3 className="h-7 w-7 text-white" />}
+        >
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-full sm:w-[120px] bg-white/20 border-white/30 text-white shadow-lg">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {annees.map((annee) => (
+                <SelectItem key={annee} value={annee.toString()}>
+                  {annee}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto bg-white/20 border-white/30 text-white hover:bg-white/30 shadow-lg"
+            onClick={handleExportExcel}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Export Excel
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto bg-white text-orange-600 hover:bg-white/90 border-white/30 shadow-lg"
+            onClick={handlePrintPDF}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Exporter PDF
+          </Button>
+        </PageHeader>
+      </div>
 
-      {/* Year Summary Cards */}
-      {currentBilan && (
-        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      {/* Section Résumé - Titre + Contenu groupés pour l'impression */}
+      <div className="print-section-with-content">
+        <SectionHeader
+          icon={<IllustrationWallet size={60} />}
+          title="Résumé annuel"
+          description={`Données financières pour ${selectedYear}`}
+        />
+
+        {/* Year Summary Cards */}
+        {currentBilan && (
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-4">
           <Card className="card-hover bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium">Année</CardTitle>
@@ -182,17 +246,20 @@ export default function BilansPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* Section header - Graphiques */}
-      <SectionHeader
-        icon={<IllustrationChart size={60} />}
-        title="Analyse graphique"
-        description="Visualisation des données financières"
-      />
+      {/* Section Graphiques - Large section, let content flow naturally */}
+      <div className="print-section-large">
+        <SectionHeader
+          icon={<IllustrationChart size={60} />}
+          title="Analyse graphique"
+          description="Visualisation des données financières"
+          className="print-section-header"
+        />
 
-      <Tabs defaultValue="mensuel" className="space-y-4">
+        <Tabs defaultValue="mensuel" className="space-y-4 mt-4">
         <TabsList className="w-full sm:w-auto flex overflow-x-auto">
           <TabsTrigger value="mensuel" className="flex-1 sm:flex-none text-xs sm:text-sm">Vue Mensuelle</TabsTrigger>
           <TabsTrigger value="annuel" className="flex-1 sm:flex-none text-xs sm:text-sm">Comparaison Annuelle</TabsTrigger>
@@ -200,7 +267,7 @@ export default function BilansPage() {
         </TabsList>
 
         <TabsContent value="mensuel" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 print-keep-together">
             {/* Monthly Bar Chart */}
             <Card className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 border-amber-100/50">
               <CardHeader>
@@ -264,9 +331,20 @@ export default function BilansPage() {
           </div>
 
           {/* Monthly Table */}
-          <Card className="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50">
-            <CardHeader>
-              <CardTitle>Détail Mensuel {selectedYear}</CardTitle>
+          <Card className="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 print-keep-together">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Détail Mensuel {selectedYear}</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportBilanExcel}
+                className="no-print"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -330,7 +408,7 @@ export default function BilansPage() {
         <TabsContent value="annuel" className="space-y-4">
           <div className="grid gap-4">
             {/* Annual Comparison Chart */}
-            <Card className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 border-amber-100/50">
+            <Card className="bg-gradient-to-br from-amber-50/50 to-orange-50/50 border-amber-100/50 print-keep-together">
               <CardHeader>
                 <CardTitle>Comparaison Annuelle</CardTitle>
                 <CardDescription>
@@ -373,9 +451,20 @@ export default function BilansPage() {
           </div>
 
           {/* Annual Table */}
-          <Card className="bg-gradient-to-br from-orange-50/40 to-red-50/30 border-orange-100/50">
-            <CardHeader>
-              <CardTitle>Récapitulatif par Année</CardTitle>
+          <Card className="bg-gradient-to-br from-orange-50/40 to-red-50/30 border-orange-100/50 print-keep-together">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Récapitulatif par Année</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportAnnualBilanExcel}
+                className="no-print"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -443,7 +532,7 @@ export default function BilansPage() {
         </TabsContent>
 
         <TabsContent value="cumul" className="space-y-4">
-          <Card className="bg-gradient-to-br from-amber-50/50 to-red-50/40 border-amber-100/50">
+          <Card className="bg-gradient-to-br from-amber-50/50 to-red-50/40 border-amber-100/50 print-keep-together">
             <CardHeader>
               <CardTitle>Cumul Progressif ({selectedYear})</CardTitle>
               <CardDescription>
@@ -493,7 +582,8 @@ export default function BilansPage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }

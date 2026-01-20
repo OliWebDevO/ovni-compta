@@ -12,6 +12,7 @@ import {
   Receipt,
   Plus,
   LayoutDashboard,
+  ChevronRight,
 } from 'lucide-react';
 import {
   transactions,
@@ -269,11 +270,12 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {recentTransactions.map((tx) => (
-                <div
+                <Link
                   key={tx.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                  href="/dashboard/transactions"
+                  className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer"
                 >
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">
@@ -284,19 +286,22 @@ export default function DashboardPage() {
                       {tx.artiste && ` • ${tx.artiste.nom}`}
                     </p>
                   </div>
-                  <div className="text-right">
-                    {tx.credit > 0 && (
-                      <span className={`${TEXT_COLORS.credit} font-medium`}>
-                        +{formatCurrency(tx.credit)}
-                      </span>
-                    )}
-                    {tx.debit > 0 && (
-                      <span className={`${TEXT_COLORS.debit} font-medium`}>
-                        -{formatCurrency(tx.debit)}
-                      </span>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      {tx.credit > 0 && (
+                        <span className={`${TEXT_COLORS.credit} font-medium`}>
+                          +{formatCurrency(tx.credit)}
+                        </span>
+                      )}
+                      {tx.debit > 0 && (
+                        <span className={`${TEXT_COLORS.debit} font-medium`}>
+                          -{formatCurrency(tx.debit)}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             <Button variant="outline" className="w-full mt-4" asChild>
