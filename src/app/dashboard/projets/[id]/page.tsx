@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -31,9 +31,15 @@ import {
   Receipt,
   Pencil,
   User,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
-import { getProjetById, transactions, getArtisteById } from '@/data/mock';
+import { getProjetById, getProjetTransactions, getProjetArtistes } from '@/lib/actions/projets';
+import { deleteTransaction } from '@/lib/actions/transactions';
+import { toast } from 'sonner';
+import type { ProjetWithStats } from '@/types/database';
 import { CATEGORIES } from '@/types';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   formatCurrency,
   formatDate,
@@ -48,6 +54,26 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+
+// Types for project data
+interface ProjetTransaction {
+  id: string;
+  date: string;
+  description: string;
+  credit: number;
+  debit: number;
+  categorie: string | null;
+  artiste_id: string | null;
+  artiste_nom?: string;
+}
+
+interface ProjetArtiste {
+  id: string;
+  artiste_id: string;
+  artiste_nom: string;
+  artiste_couleur: string | null;
+  role_projet: string | null;
+}
 
 // Couleurs pour les catégories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -75,16 +101,58 @@ export default function ProjetDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const projet = getProjetById(id);
+  const [projet, setProjet] = useState<ProjetWithStats | null>(null);
+  const [projetTransactions, setProjetTransactions] = useState<ProjetTransaction[]>([]);
+  const [projetArtistes, setProjetArtistes] = useState<ProjetArtiste[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFoundState, setNotFoundState] = useState(false);
+  const { canEdit } = usePermissions();
 
-  if (!projet) {
+  useEffect(() => {
+    async function fetchData() {
+      const [projetRes, txRes, artistesRes] = await Promise.all([
+        getProjetById(id),
+        getProjetTransactions(id),
+        getProjetArtistes(id),
+      ]);
+
+      if (!projetRes.data) {
+        setNotFoundState(true);
+        return;
+      }
+
+      setProjet(projetRes.data);
+      if (txRes.data) setProjetTransactions(txRes.data);
+      if (artistesRes.data) setProjetArtistes(artistesRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [id]);
+
+  const handleDeleteTransaction = async (txId: string) => {
+    const { error } = await deleteTransaction(txId);
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+    toast.success('Transaction supprimée');
+    setProjetTransactions(projetTransactions.filter((tx) => tx.id !== txId));
+  };
+
+  if (notFoundState) {
     notFound();
   }
 
-  const projetTransactions = transactions.filter(
-    (t) => t.projet_id === projet.id
-  );
-  const artiste = projet.artiste_id ? getArtisteById(projet.artiste_id) : null;
+  if (isLoading || !projet) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
+
+  // Get the first artiste if any
+  const artiste = projetArtistes.length > 0 ? projetArtistes[0] : null;
 
   const budgetUsed = projet.budget
     ? ((projet.total_debit || 0) / projet.budget) * 100
@@ -130,31 +198,23 @@ export default function ProjetDetailPage({
       {/* Header avec gradient */}
       <div className="animate-slide-up relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 p-6 text-white">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" asChild className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button variant="outline" size="icon" asChild className="bg-white/20 border-white/30 text-white hover:bg-white/30 shrink-0">
               <Link href="/dashboard/projets">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <Badge className="bg-white/20 text-white border-white/30">
-              {projet.statut === 'actif'
-                ? 'Actif'
-                : projet.statut === 'termine'
-                ? 'Terminé'
-                : 'Annulé'}
-            </Badge>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{projet.nom}</h1>
+              <p className="text-white/80">Fiche projet</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{projet.nom}</h1>
-            <p className="text-base sm:text-lg text-white/80">{projet.code}</p>
-            {projet.description && (
-              <p className="text-sm sm:text-base text-white/70 mt-1">{projet.description}</p>
-            )}
-          </div>
-          <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90">
-            <Pencil className="mr-2 h-4 w-4" />
-            Modifier
-          </Button>
+          {canEdit && (
+            <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90">
+              <Pencil className="mr-2 h-4 w-4" />
+              Modifier
+            </Button>
+          )}
         </div>
       </div>
 
@@ -241,10 +301,10 @@ export default function ProjetDetailPage({
                   <div>
                     <p className="text-sm text-muted-foreground">Artiste associé</p>
                     <Link
-                      href={`/dashboard/artistes/${artiste.id}`}
+                      href={`/dashboard/artistes/${artiste.artiste_id}`}
                       className="text-primary hover:underline"
                     >
-                      {artiste.nom}
+                      {artiste.artiste_nom}
                     </Link>
                   </div>
                 </div>
@@ -411,22 +471,34 @@ export default function ProjetDetailPage({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.artiste && (
-                        <Badge variant="outline" className="text-xs">{tx.artiste.nom}</Badge>
+                      {tx.artiste_nom && (
+                        <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
                       )}
                     </div>
                     <p className="font-medium mt-1 text-sm">{tx.description}</p>
                   </div>
-                  <div className="text-right shrink-0">
-                    {tx.credit > 0 && (
-                      <span className="text-emerald-600 font-semibold">
-                        +{formatCurrency(tx.credit)}
-                      </span>
-                    )}
-                    {tx.debit > 0 && (
-                      <span className="text-rose-500 font-semibold">
-                        -{formatCurrency(tx.debit)}
-                      </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                      {tx.credit > 0 && (
+                        <span className="text-emerald-600 font-semibold">
+                          +{formatCurrency(tx.credit)}
+                        </span>
+                      )}
+                      {tx.debit > 0 && (
+                        <span className="text-rose-500 font-semibold">
+                          -{formatCurrency(tx.debit)}
+                        </span>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                        onClick={() => handleDeleteTransaction(tx.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -458,6 +530,7 @@ export default function ProjetDetailPage({
                   <TableHead>Artiste</TableHead>
                   <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="text-right">Débit</TableHead>
+                  {canEdit && <TableHead className="w-[50px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -468,8 +541,8 @@ export default function ProjetDetailPage({
                     </TableCell>
                     <TableCell>{tx.description}</TableCell>
                     <TableCell>
-                      {tx.artiste ? (
-                        <Badge variant="outline">{tx.artiste.nom}</Badge>
+                      {tx.artiste_nom ? (
+                        <Badge variant="outline">{tx.artiste_nom}</Badge>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -492,6 +565,18 @@ export default function ProjetDetailPage({
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                          onClick={() => handleDeleteTransaction(tx.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Select,
@@ -38,24 +37,52 @@ import {
   Calendar,
   Euro,
   FolderKanban,
+  Loader2,
 } from 'lucide-react';
-import { projets, artistes } from '@/data/mock';
-import { formatCurrency, formatDate, getStatutColor } from '@/lib/utils';
+import { getProjets } from '@/lib/actions/projets';
+import { getArtistes } from '@/lib/actions/artistes';
+import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationProject, IllustrationWallet } from '@/components/illustrations';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function ProjetsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [projets, setProjets] = useState<ProjetWithStats[]>([]);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const { canCreate } = usePermissions();
 
-  // Prevent hydration mismatch with Radix UI components
+  // Fetch data and prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
+
+    async function fetchData() {
+      const [projetsRes, artistesRes] = await Promise.all([
+        getProjets(),
+        getArtistes(),
+      ]);
+
+      if (projetsRes.data) setProjets(projetsRes.data);
+      if (artistesRes.data) setArtistes(artistesRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
 
   const filteredProjets = projets.filter((projet) => {
     const matchesSearch =
@@ -79,80 +106,82 @@ export default function ProjetsPage() {
         gradient="from-purple-500 via-fuchsia-500 to-pink-500"
         icon={<FolderKanban className="h-7 w-7 text-white" />}
       >
-        {isMounted ? (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Nouveau projet
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Nouveau projet</DialogTitle>
-                <DialogDescription>
-                  Créer un nouveau projet avec son budget
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="nom">Nom du projet</Label>
-                  <Input id="nom" placeholder="Ex: Le Vagabond & Le Renard" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="code">Code</Label>
-                  <Input id="code" placeholder="Ex: LVLR" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Description du projet..."
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="date_debut">Date de début</Label>
-                    <Input id="date_debut" type="date" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="date_fin">Date de fin (optionnel)</Label>
-                    <Input id="date_fin" type="date" />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="budget">Budget (€)</Label>
-                  <Input id="budget" type="number" placeholder="0.00" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="artiste">Artiste associé (optionnel)</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un artiste" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {artistes.map((artiste) => (
-                        <SelectItem key={artiste.id} value={artiste.id}>
-                          {artiste.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                  Annuler
+        {canCreate && (
+          isMounted ? (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nouveau projet
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau projet
-          </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Nouveau projet</DialogTitle>
+                  <DialogDescription>
+                    Créer un nouveau projet avec son budget
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="nom">Nom du projet</Label>
+                    <Input id="nom" placeholder="Ex: Le Vagabond & Le Renard" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="code">Code</Label>
+                    <Input id="code" placeholder="Ex: LVLR" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Description du projet..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="date_debut">Date de début</Label>
+                      <Input id="date_debut" type="date" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="date_fin">Date de fin (optionnel)</Label>
+                      <Input id="date_fin" type="date" />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="budget">Budget (€)</Label>
+                    <Input id="budget" type="number" placeholder="0.00" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="artiste">Artiste associé (optionnel)</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un artiste" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {artistes.map((artiste) => (
+                          <SelectItem key={artiste.id} value={artiste.id}>
+                            {artiste.nom}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                    Annuler
+                  </Button>
+                  <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau projet
+            </Button>
+          )
         )}
       </PageHeader>
 
@@ -258,14 +287,7 @@ export default function ProjetsPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <Badge variant={getStatutColor(projet.statut)}>
-                        {projet.statut === 'actif'
-                          ? 'Actif'
-                          : projet.statut === 'termine'
-                          ? 'Terminé'
-                          : 'Annulé'}
-                      </Badge>
-                      <CardTitle className="mt-2">{projet.nom}</CardTitle>
+                      <CardTitle>{projet.nom}</CardTitle>
                       <CardDescription>{projet.code}</CardDescription>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />

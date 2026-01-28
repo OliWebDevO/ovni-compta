@@ -9,7 +9,6 @@ import {
   Users,
   FolderKanban,
   BarChart3,
-  Settings,
   Shield,
   User,
   Sparkles,
@@ -26,8 +25,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { currentUser, currentArtiste } from '@/data/mock';
 import { cn } from '@/lib/utils';
+
+interface AppSidebarProps {
+  userRole?: 'admin' | 'editor' | 'viewer';
+  artisteNom?: string;
+}
 
 const menuItems = [
   {
@@ -121,17 +124,6 @@ const adminItems = [
     borderActive: 'border-slate-400',
     iconBg: 'bg-slate-200 text-slate-700',
   },
-  {
-    title: 'Paramètres',
-    url: '/dashboard/admin/settings',
-    icon: Settings,
-    gradient: 'from-gray-500 to-slate-600',
-    bgHover: 'hover:bg-gray-100',
-    textActive: 'text-gray-700',
-    bgActive: 'bg-gradient-to-r from-gray-200 to-slate-200',
-    borderActive: 'border-gray-400',
-    iconBg: 'bg-gray-200 text-gray-600',
-  },
 ];
 
 const artisteItem = {
@@ -146,9 +138,9 @@ const artisteItem = {
   iconBg: 'bg-cyan-100 text-cyan-600',
 };
 
-export function AppSidebar() {
+export function AppSidebar({ userRole, artisteNom }: AppSidebarProps) {
   const pathname = usePathname();
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = userRole === 'admin';
 
   const isActive = (url: string) => {
     if (url === '/dashboard') {
@@ -272,7 +264,9 @@ export function AppSidebar() {
                       )}>
                         {artisteItem.title}
                       </span>
-                      <span className="text-xs text-gray-500">{currentArtiste.nom}</span>
+                      {artisteNom && (
+                        <span className="text-xs text-gray-500">{artisteNom}</span>
+                      )}
                     </div>
                     {isActive(artisteItem.url) && (
                       <div className={cn(

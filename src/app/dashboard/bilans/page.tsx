@@ -34,8 +34,11 @@ import {
   BarChart3,
   FileSpreadsheet,
   FileText,
+  Loader2,
 } from 'lucide-react';
-import { bilansAnnuels, bilansMensuels2024, transactions } from '@/data/mock';
+import { getBilansAnnuels, getBilansMensuels } from '@/lib/actions/bilans';
+import { getTransactions } from '@/lib/actions/transactions';
+import type { BilanAnnuel, BilanMensuel, TransactionWithRelations } from '@/types/database';
 import { formatCurrency, getSoldeColor, MOIS } from '@/lib/utils';
 import { exportBilanToCSV, exportYearTransactionsToCSV } from '@/lib/export';
 import { TEXT_COLORS } from '@/lib/colors';
@@ -66,20 +69,64 @@ import {
   Area,
 } from 'recharts';
 
-const annees = bilansAnnuels.map((b) => b.annee);
-
 export default function BilansPage() {
-  const [selectedYear, setSelectedYear] = useState<string>('2024');
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const chartsRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [bilansAnnuels, setBilansAnnuels] = useState<BilanAnnuel[]>([]);
+  const [bilansMensuels, setBilansMensuels] = useState<BilanMensuel[]>([]);
+  const [transactions, setTransactions] = useState<TransactionWithRelations[]>([]);
 
-  // Prevent hydration mismatch with Radix UI components
+  // Fetch data and prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
+
+    async function fetchData() {
+      const [annuelsRes, mensuelsRes, txRes] = await Promise.all([
+        getBilansAnnuels(),
+        getBilansMensuels(parseInt(selectedYear)),
+        getTransactions(),
+      ]);
+
+      if (annuelsRes.data) {
+        setBilansAnnuels(annuelsRes.data);
+        // Set default year to most recent if available
+        if (annuelsRes.data.length > 0 && !selectedYear) {
+          setSelectedYear(annuelsRes.data[0].annee.toString());
+        }
+      }
+      if (mensuelsRes.data) setBilansMensuels(mensuelsRes.data);
+      if (txRes.data) setTransactions(txRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
   }, []);
 
+  // Refetch monthly data when year changes
+  useEffect(() => {
+    if (!isMounted) return;
+
+    async function fetchMonthlyData() {
+      const mensuelsRes = await getBilansMensuels(parseInt(selectedYear));
+      if (mensuelsRes.data) setBilansMensuels(mensuelsRes.data);
+    }
+    fetchMonthlyData();
+  }, [selectedYear, isMounted]);
+
+  // Compute available years from bilans
+  const annees = bilansAnnuels.map((b) => b.annee);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
   // Prepare monthly data for export
-  const monthlyDataForExport = bilansMensuels2024.map((b) => ({
+  const monthlyDataForExport = bilansMensuels.map((b) => ({
     mois: MOIS[b.mois - 1],
     total_credit: b.total_credit,
     total_debit: b.total_debit,
@@ -117,14 +164,14 @@ export default function BilansPage() {
     (b) => b.annee === parseInt(selectedYear)
   );
 
-  const monthlyDataForChart = bilansMensuels2024.map((b) => ({
+  const monthlyDataForChart = bilansMensuels.map((b) => ({
     mois: MOIS[b.mois - 1].slice(0, 3),
     credit: b.total_credit,
     debit: b.total_debit,
     solde: b.solde,
   }));
 
-  const cumulativeData = bilansMensuels2024.reduce(
+  const cumulativeData = bilansMensuels.reduce(
     (acc, b, i) => {
       const prev = i > 0 ? acc[i - 1] : { cumulCredit: 0, cumulDebit: 0, cumulSolde: 0 };
       acc.push({
@@ -368,7 +415,7 @@ export default function BilansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bilansMensuels2024.map((bilan) => (
+                  {bilansMensuels.map((bilan) => (
                     <TableRow key={bilan.mois}>
                       <TableCell className="font-medium">
                         {MOIS[bilan.mois - 1]}
@@ -392,21 +439,21 @@ export default function BilansPage() {
                     <TableCell>TOTAL</TableCell>
                     <TableCell className={`text-right ${TEXT_COLORS.credit}`}>
                       {formatCurrency(
-                        bilansMensuels2024.reduce((s, b) => s + b.total_credit, 0)
+                        bilansMensuels.reduce((s, b) => s + b.total_credit, 0)
                       )}
                     </TableCell>
                     <TableCell className={`text-right ${TEXT_COLORS.debit}`}>
                       {formatCurrency(
-                        bilansMensuels2024.reduce((s, b) => s + b.total_debit, 0)
+                        bilansMensuels.reduce((s, b) => s + b.total_debit, 0)
                       )}
                     </TableCell>
                     <TableCell
                       className={`text-right ${getSoldeColor(
-                        bilansMensuels2024.reduce((s, b) => s + b.solde, 0)
+                        bilansMensuels.reduce((s, b) => s + b.solde, 0)
                       )}`}
                     >
                       {formatCurrency(
-                        bilansMensuels2024.reduce((s, b) => s + b.solde, 0)
+                        bilansMensuels.reduce((s, b) => s + b.solde, 0)
                       )}
                     </TableCell>
                   </TableRow>

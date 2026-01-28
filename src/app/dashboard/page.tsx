@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,16 +14,13 @@ import {
   Plus,
   LayoutDashboard,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
-import {
-  transactions,
-  artistes,
-  projets,
-  getTotalSolde,
-  getTotalCredits,
-  getTotalDebits,
-  bilansAnnuels,
-} from '@/data/mock';
+import { getRecentTransactions } from '@/lib/actions/transactions';
+import { getArtistes } from '@/lib/actions/artistes';
+import { getProjets } from '@/lib/actions/projets';
+import { getBilansAnnuels, getBilansLast12Months } from '@/lib/actions/bilans';
+import type { BilanAnnuel, ArtisteWithStats, ProjetWithStats, TransactionWithRelations } from '@/types/database';
 import { formatCurrency, formatDate, getSoldeColor } from '@/lib/utils';
 import { TEXT_COLORS } from '@/lib/colors';
 import {
@@ -55,28 +53,103 @@ import {
   Bar,
 } from 'recharts';
 
-const monthlyData = [
-  { mois: 'Jan', credit: 2500, debit: 1800 },
-  { mois: 'Fév', credit: 3200, debit: 2100 },
-  { mois: 'Mar', credit: 1800, debit: 2500 },
-  { mois: 'Avr', credit: 4500, debit: 1900 },
-  { mois: 'Mai', credit: 2800, debit: 2200 },
-  { mois: 'Juin', credit: 3500, debit: 2800 },
-  { mois: 'Juil', credit: 2100, debit: 1500 },
-  { mois: 'Août', credit: 1500, debit: 1200 },
-  { mois: 'Sept', credit: 4200, debit: 3100 },
-  { mois: 'Oct', credit: 3800, debit: 2400 },
-  { mois: 'Nov', credit: 2900, debit: 2000 },
-  { mois: 'Déc', credit: 3100, debit: 2600 },
-];
+const MOIS_NOMS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+
+// Génère les labels des 12 derniers mois (ex: "Fév 25", "Mar 25", ... "Jan 26")
+function getLast12MonthsLabels(): Array<{ label: string; annee: number; mois: number }> {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  const months: Array<{ label: string; annee: number; mois: number }> = [];
+
+  for (let i = 11; i >= 0; i--) {
+    let mois = currentMonth - i;
+    let annee = currentYear;
+
+    if (mois <= 0) {
+      mois += 12;
+      annee -= 1;
+    }
+
+    const label = `${MOIS_NOMS[mois - 1]} ${String(annee).slice(-2)}`;
+    months.push({ label, annee, mois });
+  }
+
+  return months;
+}
 
 export default function DashboardPage() {
-  const solde = getTotalSolde();
-  const totalCredits = getTotalCredits();
-  const totalDebits = getTotalDebits();
-  const recentTransactions = transactions.slice(0, 5);
+  const [isLoading, setIsLoading] = useState(true);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionWithRelations[]>([]);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const [projets, setProjets] = useState<ProjetWithStats[]>([]);
+  const [bilansAnnuels, setBilansAnnuels] = useState<BilanAnnuel[]>([]);
+  const [monthlyData, setMonthlyData] = useState<Array<{ mois: string; credit: number; debit: number }>>([]);
+  const [totals, setTotals] = useState({ solde: 0, totalCredits: 0, totalDebits: 0, transactionsCount: 0 });
+
+  useEffect(() => {
+    async function fetchData() {
+      const [txRes, artistesRes, projetsRes, bilansRes, mensuelsRes] = await Promise.all([
+        getRecentTransactions(5),
+        getArtistes(),
+        getProjets(),
+        getBilansAnnuels(),
+        getBilansLast12Months(),
+      ]);
+
+      if (txRes.data) setRecentTransactions(txRes.data);
+      if (artistesRes.data) setArtistes(artistesRes.data);
+      if (projetsRes.data) setProjets(projetsRes.data);
+      if (bilansRes.data) setBilansAnnuels(bilansRes.data);
+
+      // Calculate totals from artistes AND projets
+      if (artistesRes.data && projetsRes.data) {
+        const artistesCredits = artistesRes.data.reduce((sum, a) => sum + (a.total_credit || 0), 0);
+        const artistesDebits = artistesRes.data.reduce((sum, a) => sum + (a.total_debit || 0), 0);
+        const artistesTx = artistesRes.data.reduce((sum, a) => sum + (a.nb_transactions || 0), 0);
+
+        const projetsCredits = projetsRes.data.reduce((sum, p) => sum + (p.total_credit || 0), 0);
+        const projetsDebits = projetsRes.data.reduce((sum, p) => sum + (p.total_debit || 0), 0);
+        const projetsTx = projetsRes.data.reduce((sum, p) => sum + (p.nb_transactions || 0), 0);
+
+        setTotals({
+          solde: (artistesCredits + projetsCredits) - (artistesDebits + projetsDebits),
+          totalCredits: artistesCredits + projetsCredits,
+          totalDebits: artistesDebits + projetsDebits,
+          transactionsCount: artistesTx + projetsTx,
+        });
+      }
+
+      // Transform monthly data for chart (last 12 months)
+      const last12Months = getLast12MonthsLabels();
+      const chartData = last12Months.map(({ label, annee, mois }) => {
+        const monthData = mensuelsRes.data?.find(
+          (m) => m.annee === annee && m.mois === mois
+        );
+        return {
+          mois: label,
+          credit: monthData?.total_credit || 0,
+          debit: monthData?.total_debit || 0,
+        };
+      });
+      setMonthlyData(chartData);
+
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
   const artistesActifs = artistes.filter((a) => a.actif).length;
   const projetsActifs = projets.filter((p) => p.statut === 'actif').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,11 +185,11 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${getSoldeColor(solde)}`}>
-              {formatCurrency(solde)}
+            <div className={`text-2xl font-bold ${getSoldeColor(totals.solde)}`}>
+              {formatCurrency(totals.solde)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {solde > 0 ? '+12% par rapport au mois dernier' : 'Attention: solde négatif'}
+              {totals.solde > 0 ? 'Solde positif' : 'Attention: solde négatif'}
             </p>
           </CardContent>
         </Card>
@@ -130,10 +203,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${TEXT_COLORS.credit}`}>
-              {formatCurrency(totalCredits)}
+              {formatCurrency(totals.totalCredits)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {transactions.filter((t) => t.credit > 0).length} entrées
+              Total des entrées
             </p>
           </CardContent>
         </Card>
@@ -147,10 +220,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${TEXT_COLORS.debit}`}>
-              {formatCurrency(totalDebits)}
+              {formatCurrency(totals.totalDebits)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {transactions.filter((t) => t.debit > 0).length} sorties
+              Total des sorties
             </p>
           </CardContent>
         </Card>
@@ -163,7 +236,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{transactions.length}</div>
+            <div className="text-2xl font-bold">{totals.transactionsCount}</div>
             <p className="text-xs text-muted-foreground">
               {artistesActifs} artistes • {projetsActifs} projets actifs
             </p>
@@ -283,7 +356,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(tx.date)}
-                      {tx.artiste && ` • ${tx.artiste.nom}`}
+                      {tx.artiste_nom && ` • ${tx.artiste_nom}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -327,7 +400,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-medium">Artistes</p>
                   <p className="text-sm text-muted-foreground">
-                    {artistes.length} artistes enregistrés
+                    {artistes.length} artiste{artistes.length > 1 ? 's' : ''} enregistré{artistes.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -345,7 +418,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-medium">Projets</p>
                   <p className="text-sm text-muted-foreground">
-                    {projets.length} projets enregistrés
+                    {projets.length} projet{projets.length > 1 ? 's' : ''} enregistré{projets.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -363,11 +436,15 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-medium">Bilans</p>
                   <p className="text-sm text-muted-foreground">
-                    {bilansAnnuels.length} années de données
+                    {bilansAnnuels.length} année{bilansAnnuels.length > 1 ? 's' : ''} de données
                   </p>
                 </div>
               </div>
-              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">2020-2024</Badge>
+              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                {bilansAnnuels.length > 0
+                  ? `${bilansAnnuels[bilansAnnuels.length - 1]?.annee}-${bilansAnnuels[0]?.annee}`
+                  : '-'}
+              </Badge>
             </Link>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -21,17 +22,19 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
   Mail,
-  Phone,
   Calendar,
-  TrendingUp,
-  TrendingDown,
   Receipt,
   Download,
   Euro,
   ArrowUpRight,
   ArrowDownRight,
+  Loader2,
 } from 'lucide-react';
-import { currentArtiste, transactions, projets } from '@/data/mock';
+import { getCurrentUser } from '@/lib/actions/profile';
+import { getArtisteById, getArtisteTransactions } from '@/lib/actions/artistes';
+import { getProjets } from '@/lib/actions/projets';
+import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
+import type { CurrentUser } from '@/lib/actions/profile';
 import {
   formatCurrency,
   formatDate,
@@ -43,11 +46,9 @@ import {
 import { SectionHeader } from '@/components/ui/section-header';
 import { IllustrationWallet, IllustrationChart, IllustrationProject, IllustrationDocuments } from '@/components/illustrations';
 import { Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
   ModernTooltip,
   ChartGradients,
-  MODERN_COLORS,
   modernAxisConfig,
   modernGridConfig,
 } from '@/components/ui/chart-components';
@@ -62,33 +63,105 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { EmptyState } from '@/components/ui/empty-state';
 
-// Données mensuelles pour Geoffrey
-const monthlyData = [
-  { mois: 'Juil', credit: 450, debit: 0 },
-  { mois: 'Août', credit: 0, debit: 150 },
-  { mois: 'Sept', credit: 0, debit: 618.96 },
-  { mois: 'Oct', credit: 200, debit: 0 },
-  { mois: 'Nov', credit: 0, debit: 1020 },
-  { mois: 'Déc', credit: 0, debit: 375 },
-  { mois: 'Jan', credit: 0, debit: 1.50 },
-];
+interface ArtisteTransaction {
+  id: string;
+  date: string;
+  description: string;
+  credit: number;
+  debit: number;
+  categorie: string | null;
+  projet_id: string | null;
+  projet_code?: string;
+}
 
 export default function MonComptePage() {
-  const artiste = currentArtiste;
+  const [isLoading, setIsLoading] = useState(true);
+  const [artiste, setArtiste] = useState<ArtisteWithStats | null>(null);
+  const [mesTransactions, setMesTransactions] = useState<ArtisteTransaction[]>([]);
+  const [mesProjets, setMesProjets] = useState<ProjetWithStats[]>([]);
 
-  // Transactions de cet artiste
-  const mesTransactions = transactions.filter(
-    (t) => t.artiste_id === artiste.id
-  );
+  useEffect(() => {
+    async function fetchData() {
+      // First get the current user to find their artiste_id
+      const userRes = await getCurrentUser();
+      if (!userRes.data?.artiste_id) {
+        setIsLoading(false);
+        return;
+      }
 
-  // Projets liés à cet artiste
-  const mesProjets = projets.filter((p) => p.artiste_id === artiste.id);
+      const artisteId = userRes.data.artiste_id;
 
-  // Calculs
-  const totalCredits = mesTransactions.reduce((sum, t) => sum + t.credit, 0);
-  const totalDebits = mesTransactions.reduce((sum, t) => sum + t.debit, 0);
-  const solde = totalCredits - totalDebits;
+      // Fetch artiste data, transactions, and projets in parallel
+      const [artisteRes, txRes, projetsRes] = await Promise.all([
+        getArtisteById(artisteId),
+        getArtisteTransactions(artisteId),
+        getProjets(),
+      ]);
+
+      if (artisteRes.data) setArtiste(artisteRes.data);
+      if (txRes.data) setMesTransactions(txRes.data);
+      // Filter projets to only those linked to this artiste
+      if (projetsRes.data) {
+        setMesProjets(projetsRes.data.filter(p => p.artiste_id === artisteId));
+      }
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  // Compute monthly data from transactions
+  const monthlyData = mesTransactions.reduce((acc, tx) => {
+    const date = new Date(tx.date);
+    const monthKey = MOIS[date.getMonth()].slice(0, 4);
+    const existing = acc.find(m => m.mois === monthKey);
+    if (existing) {
+      existing.credit += tx.credit;
+      existing.debit += tx.debit;
+    } else {
+      acc.push({ mois: monthKey, credit: tx.credit, debit: tx.debit });
+    }
+    return acc;
+  }, [] as { mois: string; credit: number; debit: number }[]);
+
+  // Compute expense breakdown by category
+  const expensesByCategory = mesTransactions
+    .filter(tx => tx.debit > 0)
+    .reduce((acc, tx) => {
+      const cat = tx.categorie || 'Autre';
+      const existing = acc.find(e => e.cat === cat);
+      if (existing) {
+        existing.montant += tx.debit;
+      } else {
+        acc.push({ cat, montant: tx.debit });
+      }
+      return acc;
+    }, [] as { cat: string; montant: number }[])
+    .sort((a, b) => b.montant - a.montant)
+    .slice(0, 5);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!artiste) {
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <EmptyState
+            title="Aucun artiste associé"
+            description="Votre compte n'est pas lié à un profil artiste. Contactez un administrateur."
+            illustration="document"
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -270,12 +343,7 @@ export default function MonComptePage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart
-                data={[
-                  { cat: 'Matériel', montant: 1020 },
-                  { cat: 'Smart', montant: 618.96 },
-                  { cat: 'Thomann', montant: 375 },
-                  { cat: 'Frais', montant: 1.50 },
-                ]}
+                data={expensesByCategory}
                 layout="vertical"
               >
                 <ChartGradients />
@@ -379,8 +447,8 @@ export default function MonComptePage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.projet && (
-                        <Badge variant="secondary" className="text-xs">{tx.projet.code}</Badge>
+                      {tx.projet_code && (
+                        <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
                       )}
                       {tx.categorie && (
                         <Badge variant="outline" className="text-xs">{tx.categorie}</Badge>
@@ -438,8 +506,8 @@ export default function MonComptePage() {
                     </TableCell>
                     <TableCell>{tx.description}</TableCell>
                     <TableCell>
-                      {tx.projet ? (
-                        <Badge variant="secondary">{tx.projet.code}</Badge>
+                      {tx.projet_code ? (
+                        <Badge variant="secondary">{tx.projet_code}</Badge>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}

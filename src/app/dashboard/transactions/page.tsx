@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -27,23 +28,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Plus,
   Search,
@@ -51,29 +40,66 @@ import {
   Trash2,
   Download,
   Filter,
-  ChevronRight,
   Receipt,
+  Loader2,
 } from 'lucide-react';
-import { transactions, artistes, projets, CATEGORIES } from '@/data/mock';
+import { getTransactions, deleteTransaction } from '@/lib/actions/transactions';
+import { toast } from 'sonner';
+import { getArtistes } from '@/lib/actions/artistes';
+import { getProjets } from '@/lib/actions/projets';
+import type { ArtisteWithStats, ProjetWithStats, TransactionWithRelations } from '@/types/database';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { exportTransactionsToCSV } from '@/lib/export';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationWallet, IllustrationDocuments } from '@/components/illustrations';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArtiste, setFilterArtiste] = useState<string>('all');
   const [filterProjet, setFilterProjet] = useState<string>('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [transactions, setTransactions] = useState<TransactionWithRelations[]>([]);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const [projets, setProjets] = useState<ProjetWithStats[]>([]);
+  const { canEdit, canCreate } = usePermissions();
 
-  // Prevent hydration mismatch with Radix UI components
+  // Fetch data
   useEffect(() => {
-    setIsMounted(true);
+    async function fetchData() {
+      const [txRes, artistesRes, projetsRes] = await Promise.all([
+        getTransactions(),
+        getArtistes(),
+        getProjets(),
+      ]);
+
+      if (txRes.data) setTransactions(txRes.data);
+      if (artistesRes.data) setArtistes(artistesRes.data);
+      if (projetsRes.data) setProjets(projetsRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteTransaction(id);
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+    toast.success('Transaction supprimée');
+    setTransactions(transactions.filter((tx) => tx.id !== id));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+      </div>
+    );
+  }
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch = tx.description
@@ -106,100 +132,12 @@ export default function TransactionsPage() {
           <Download className="mr-2 h-4 w-4" />
           Exporter CSV
         </Button>
-        {isMounted ? (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto bg-white text-teal-600 hover:bg-white/90 shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Nouvelle transaction
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nouvelle transaction</DialogTitle>
-                <DialogDescription>
-                  Ajouter une nouvelle entrée ou sortie comptable
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Input id="description" placeholder="Description de la transaction" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="credit">Crédit (€)</Label>
-                    <Input id="credit" type="number" placeholder="0.00" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="debit">Débit (€)</Label>
-                    <Input id="debit" type="number" placeholder="0.00" />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="artiste">Artiste (optionnel)</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un artiste" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {artistes.map((artiste) => (
-                        <SelectItem key={artiste.id} value={artiste.id}>
-                          {artiste.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="projet">Projet (optionnel)</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un projet" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projets.map((projet) => (
-                        <SelectItem key={projet.id} value={projet.id}>
-                          {projet.nom} ({projet.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="categorie">Catégorie</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une catégorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                  Annuler
-                </Button>
-                <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                  Enregistrer
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Button className="w-full sm:w-auto bg-white text-teal-600 hover:bg-white/90 shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle transaction
+        {canCreate && (
+          <Button asChild className="w-full sm:w-auto bg-white text-teal-600 hover:bg-white/90 shadow-lg">
+            <Link href="/dashboard/transactions/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle transaction
+            </Link>
           </Button>
         )}
       </PageHeader>
@@ -265,7 +203,7 @@ export default function TransactionsPage() {
       </Card>
 
       {/* Summary */}
-      <div className="grid gap-3 grid-cols-3">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
         <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
           <CardContent className="p-3 sm:pt-6 sm:p-6">
             <div className="text-lg sm:text-2xl font-bold text-emerald-600">
@@ -282,7 +220,7 @@ export default function TransactionsPage() {
             <p className="text-xs sm:text-sm text-muted-foreground">Débits</p>
           </CardContent>
         </Card>
-        <Card className="card-hover bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
+        <Card className="card-hover col-span-2 sm:col-span-1 bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
           <CardContent className="p-3 sm:pt-6 sm:p-6">
             <div className={`text-lg sm:text-2xl font-bold ${totalCredits - totalDebits >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
               {formatCurrency(totalCredits - totalDebits)}
@@ -322,75 +260,25 @@ export default function TransactionsPage() {
         <p className="text-sm text-muted-foreground px-1">
           {filteredTransactions.length} transaction(s) trouvée(s)
         </p>
-        {filteredTransactions.map((tx) => (
-          isMounted ? (
-            <DropdownMenu key={tx.id}>
-              <DropdownMenuTrigger asChild>
-                <Card className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50 cursor-pointer hover:from-teal-50 hover:to-cyan-50 hover:shadow-sm transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                          {tx.artiste && (
-                            <Badge variant="outline" className="text-xs">{tx.artiste.nom}</Badge>
-                          )}
-                          {tx.projet && (
-                            <Badge variant="secondary" className="text-xs">{tx.projet.code}</Badge>
-                          )}
-                        </div>
-                        <p className="font-medium mt-1 text-sm">{tx.description}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right shrink-0">
-                          {tx.credit > 0 && (
-                            <span className="text-emerald-600 font-semibold">
-                              +{formatCurrency(tx.credit)}
-                            </span>
-                          )}
-                          {tx.debit > 0 && (
-                            <span className="text-rose-500 font-semibold">
-                              -{formatCurrency(tx.debit)}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Modifier
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-rose-500">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Supprimer
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
+        <TooltipProvider>
+          {filteredTransactions.map((tx) => (
             <Card key={tx.id} className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.artiste && (
-                        <Badge variant="outline" className="text-xs">{tx.artiste.nom}</Badge>
+                      {tx.artiste_nom && (
+                        <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
                       )}
-                      {tx.projet && (
-                        <Badge variant="secondary" className="text-xs">{tx.projet.code}</Badge>
+                      {tx.projet_code && (
+                        <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
                       )}
                     </div>
                     <p className="font-medium mt-1 text-sm">{tx.description}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="text-right shrink-0 mr-2">
                       {tx.credit > 0 && (
                         <span className="text-emerald-600 font-semibold">
                           +{formatCurrency(tx.credit)}
@@ -402,13 +290,44 @@ export default function TransactionsPage() {
                         </span>
                       )}
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {canEdit && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
+                              asChild
+                            >
+                              <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Modifier</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                              onClick={() => handleDelete(tx.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Supprimer</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )
-        ))}
+          ))}
+        </TooltipProvider>
       </div>
       )}
 
@@ -422,95 +341,100 @@ export default function TransactionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Artiste</TableHead>
-                <TableHead>Projet</TableHead>
-                <TableHead className="text-right">Crédit</TableHead>
-                <TableHead className="text-right">Débit</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.map((tx) => (
-                <TableRow
-                  key={tx.id}
-                  className="cursor-pointer hover:bg-teal-50/50 transition-colors"
-                  onClick={() => setOpenDropdownId(openDropdownId === tx.id ? null : tx.id)}
-                >
-                  <TableCell className="font-medium">
-                    {formatDate(tx.date)}
-                  </TableCell>
-                  <TableCell>{tx.description}</TableCell>
-                  <TableCell>
-                    {tx.artiste ? (
-                      <Badge variant="outline">{tx.artiste.nom}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {tx.projet ? (
-                      <Badge variant="secondary">{tx.projet.code}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {tx.credit > 0 ? (
-                      <span className="text-emerald-600 font-medium">
-                        {formatCurrency(tx.credit)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {tx.debit > 0 ? (
-                      <span className="text-rose-500 font-medium">
-                        {formatCurrency(tx.debit)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isMounted ? (
-                      <DropdownMenu
-                        open={openDropdownId === tx.id}
-                        onOpenChange={(open) => setOpenDropdownId(open ? tx.id : null)}
-                      >
-                        <DropdownMenuTrigger asChild>
-                          <div className="flex items-center justify-center">
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Modifier
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-rose-500">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <div className="flex items-center justify-center">
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </TableCell>
+          <TooltipProvider>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Artiste</TableHead>
+                  <TableHead>Projet</TableHead>
+                  <TableHead className="text-right">Crédit</TableHead>
+                  <TableHead className="text-right">Débit</TableHead>
+                  {canEdit && <TableHead className="w-[100px] text-center">Actions</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.map((tx) => (
+                  <TableRow
+                    key={tx.id}
+                    className="hover:bg-teal-50/50 transition-colors"
+                  >
+                    <TableCell className="font-medium">
+                      {formatDate(tx.date)}
+                    </TableCell>
+                    <TableCell>{tx.description}</TableCell>
+                    <TableCell>
+                      {tx.artiste_nom ? (
+                        <Badge variant="outline">{tx.artiste_nom}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {tx.projet_code ? (
+                        <Badge variant="secondary">{tx.projet_code}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {tx.credit > 0 ? (
+                        <span className="text-emerald-600 font-medium">
+                          {formatCurrency(tx.credit)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {tx.debit > 0 ? (
+                        <span className="text-rose-500 font-medium">
+                          {formatCurrency(tx.debit)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
+                                asChild
+                              >
+                                <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                                  <Pencil className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Modifier</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                                onClick={() => handleDelete(tx.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Supprimer</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TooltipProvider>
         </CardContent>
       </Card>
       )}

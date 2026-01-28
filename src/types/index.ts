@@ -147,12 +147,12 @@ export interface Ressource {
   id: string;
   titre: string;
   description: string;
-  contenu?: string;
+  contenu: string | null;
   categorie: RessourceCategorie;
-  url?: string;
+  url: string | null;
   tags: string[];
-  icon?: string;
-  important?: boolean;
+  icon: string | null;
+  important: boolean;
   created_at: string;
   updated_at: string;
 }

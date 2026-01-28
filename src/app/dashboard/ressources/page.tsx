@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +17,11 @@ import {
   Search,
   X,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockRessources, RESSOURCE_CATEGORIES } from '@/data/mock';
-import type { Ressource, RessourceCategorie } from '@/types';
+import { getRessources } from '@/lib/actions/ressources';
+import { RESSOURCE_CATEGORIES, type Ressource, type RessourceCategorie } from '@/types';
 
 const categoryIcons: Record<RessourceCategorie, React.ReactNode> = {
   guide: <BookOpen className="h-5 w-5" />,
@@ -233,11 +234,30 @@ function RessourceCard({ ressource }: { ressource: Ressource }) {
 export default function RessourcesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<RessourceCategorie>('guide');
+  const [ressources, setRessources] = useState<Ressource[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const importantRessources = mockRessources.filter((r) => r.important);
+  useEffect(() => {
+    async function fetchRessources() {
+      const { data } = await getRessources();
+      if (data) setRessources(data);
+      setIsLoading(false);
+    }
+    fetchRessources();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+      </div>
+    );
+  }
+
+  const importantRessources = ressources.filter((r) => r.important);
 
   const filterRessources = (categorie: RessourceCategorie) => {
-    let filtered = mockRessources.filter((r) => r.categorie === categorie);
+    let filtered = ressources.filter((r) => r.categorie === categorie);
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -251,7 +271,7 @@ export default function RessourcesPage() {
   };
 
   const allFilteredRessources = searchQuery
-    ? mockRessources.filter(
+    ? ressources.filter(
         (r) =>
           r.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
           r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -294,7 +314,7 @@ export default function RessourcesPage() {
             <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2">
               <FileText className="h-5 w-5 text-white/80" />
               <div>
-                <span className="font-bold text-2xl">{mockRessources.length}</span>
+                <span className="font-bold text-2xl">{ressources.length}</span>
                 <p className="text-xs text-white/70">ressources</p>
               </div>
             </div>

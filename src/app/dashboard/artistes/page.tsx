@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
@@ -31,7 +30,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Plus,
   Search,
@@ -39,13 +37,16 @@ import {
   TrendingDown,
   ChevronRight,
   Users,
+  Loader2,
 } from 'lucide-react';
-import { artistes } from '@/data/mock';
+import { getArtistes } from '@/lib/actions/artistes';
+import type { ArtisteWithStats } from '@/types/database';
 import { formatCurrency, getInitials, getSoldeColor } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationArtist, IllustrationWallet } from '@/components/illustrations';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Hook to safely detect client-side mounting without triggering cascading renders
 const emptySubscribe = () => () => {};
@@ -59,16 +60,31 @@ function useIsMounted() {
 
 export default function ArtistesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [showInactifs, setShowInactifs] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const isMounted = useIsMounted();
+  const { canCreate } = usePermissions();
+
+  useEffect(() => {
+    async function fetchArtistes() {
+      const { data } = await getArtistes();
+      if (data) setArtistes(data);
+      setIsLoading(false);
+    }
+    fetchArtistes();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   const filteredArtistes = artistes.filter((artiste) => {
-    const matchesSearch = artiste.nom
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesActif = showInactifs || artiste.actif;
-    return matchesSearch && matchesActif;
+    return artiste.nom.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const totalSolde = filteredArtistes.reduce(
@@ -93,52 +109,54 @@ export default function ArtistesPage() {
         gradient="from-blue-500 via-indigo-500 to-violet-500"
         icon={<Users className="h-7 w-7 text-white" />}
       >
-        {isMounted ? (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Nouvel artiste
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-106.25">
-              <DialogHeader>
-                <DialogTitle>Nouvel artiste</DialogTitle>
-                <DialogDescription>
-                  Créer une nouvelle fiche artiste
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="nom">Nom</Label>
-                  <Input id="nom" placeholder="Nom de l'artiste" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email (optionnel)</Label>
-                  <Input id="email" type="email" placeholder="email@example.com" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="telephone">Téléphone (optionnel)</Label>
-                  <Input id="telephone" placeholder="+32 xxx xx xx xx" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Input id="notes" placeholder="Notes supplémentaires..." />
-                </div>
-              </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                  Annuler
+        {canCreate && (
+          isMounted ? (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nouvel artiste
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvel artiste
-          </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-106.25">
+                <DialogHeader>
+                  <DialogTitle>Nouvel artiste</DialogTitle>
+                  <DialogDescription>
+                    Créer une nouvelle fiche artiste
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="nom">Nom</Label>
+                    <Input id="nom" placeholder="Nom de l'artiste" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email (optionnel)</Label>
+                    <Input id="email" type="email" placeholder="email@example.com" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="telephone">Téléphone (optionnel)</Label>
+                    <Input id="telephone" placeholder="+32 xxx xx xx xx" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Input id="notes" placeholder="Notes supplémentaires..." />
+                  </div>
+                </div>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                    Annuler
+                  </Button>
+                  <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvel artiste
+            </Button>
+          )
         )}
       </PageHeader>
 
@@ -155,7 +173,7 @@ export default function ArtistesPage() {
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-blue-700">{filteredArtistes.length}</div>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Artistes {showInactifs ? 'total' : 'actifs'}
+              Artistes
             </p>
           </CardContent>
         </Card>
@@ -188,26 +206,14 @@ export default function ArtistesPage() {
       {/* Filters */}
       <Card className="bg-linear-to-br from-slate-50 to-gray-50 border-slate-100">
         <CardContent className="p-4 sm:pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher un artiste..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="show-inactifs"
-                checked={showInactifs}
-                onCheckedChange={setShowInactifs}
-              />
-              <Label htmlFor="show-inactifs" className="text-sm">Afficher les inactifs</Label>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un artiste..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </CardContent>
       </Card>
@@ -246,7 +252,7 @@ export default function ArtistesPage() {
           <Link key={artiste.id} href={`/dashboard/artistes/${artiste.id}`}>
             <Card className="bg-linear-to-br from-blue-50/50 to-indigo-50/50 border-blue-100/50 hover:from-blue-50 hover:to-indigo-50 transition-colors">
               <CardContent className="p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback
                       style={{
@@ -258,26 +264,26 @@ export default function ArtistesPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{artiste.nom}</span>
-                      <Badge variant={artiste.actif ? 'default' : 'secondary'} className="shrink-0 text-xs">
-                        {artiste.actif ? 'Actif' : 'Inactif'}
-                      </Badge>
-                    </div>
+                    <span className="font-medium truncate block">{artiste.nom}</span>
                     <div className="text-sm text-muted-foreground">
                       {artiste.nb_transactions || 0} transactions
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className={`font-semibold ${getSoldeColor(artiste.solde || 0)}`}>
-                      {formatCurrency(artiste.solde || 0)}
-                    </div>
-                    <div className="flex items-center justify-end gap-2 text-xs">
-                      <span className="text-emerald-600">+{formatCurrency(artiste.total_credit || 0)}</span>
-                      <span className="text-rose-500">-{formatCurrency(artiste.total_debit || 0)}</span>
-                    </div>
-                  </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="text-center p-2 rounded-lg bg-emerald-50">
+                    <div className="text-xs text-muted-foreground mb-0.5">Crédits</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(artiste.total_credit || 0)}</div>
+                  </div>
+                  <div className="text-center p-2 rounded-lg bg-rose-50">
+                    <div className="text-xs text-muted-foreground mb-0.5">Débits</div>
+                    <div className="font-semibold text-rose-500">{formatCurrency(artiste.total_debit || 0)}</div>
+                  </div>
+                  <div className="text-center p-2 rounded-lg bg-violet-50">
+                    <div className="text-xs text-muted-foreground mb-0.5">Solde</div>
+                    <div className={`font-semibold ${getSoldeColor(artiste.solde || 0)}`}>{formatCurrency(artiste.solde || 0)}</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -304,7 +310,6 @@ export default function ArtistesPage() {
                 <TableHead className="text-right">Crédits</TableHead>
                 <TableHead className="text-right">Débits</TableHead>
                 <TableHead className="text-right">Solde</TableHead>
-                <TableHead>Statut</TableHead>
                 <TableHead className="w-25"></TableHead>
               </TableRow>
             </TableHeader>
@@ -362,11 +367,6 @@ export default function ArtistesPage() {
                     >
                       {formatCurrency(artiste.solde || 0)}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={artiste.actif ? 'default' : 'secondary'}>
-                      {artiste.actif ? 'Actif' : 'Inactif'}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />

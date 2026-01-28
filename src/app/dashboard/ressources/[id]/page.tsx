@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +32,11 @@ import {
   ScrollText,
   ShieldCheck,
   Briefcase,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockRessources } from '@/data/mock';
-import type { RessourceCategorie } from '@/types';
+import { getRessourceById, getRessources } from '@/lib/actions/ressources';
+import type { Ressource, RessourceCategorie } from '@/types';
 import Link from 'next/link';
 
 const categoryIcons: Record<RessourceCategorie, React.ReactNode> = {
@@ -561,14 +563,39 @@ export default function RessourceDetailPage() {
   const router = useRouter();
   const ressourceId = params.id as string;
 
-  const ressource = mockRessources.find(r => r.id === ressourceId);
+  const [isLoading, setIsLoading] = useState(true);
+  const [ressource, setRessource] = useState<Ressource | null>(null);
+  const [relatedRessources, setRelatedRessources] = useState<Ressource[]>([]);
 
-  // Get related resources
-  const relatedRessources = ressource
-    ? mockRessources
-        .filter(r => r.id !== ressource.id && r.categorie === ressource.categorie)
-        .slice(0, 3)
-    : [];
+  useEffect(() => {
+    async function fetchData() {
+      const [ressourceRes, allRes] = await Promise.all([
+        getRessourceById(ressourceId),
+        getRessources(),
+      ]);
+
+      if (ressourceRes.data) {
+        setRessource(ressourceRes.data);
+        // Get related resources
+        if (allRes.data) {
+          const related = allRes.data
+            .filter(r => r.id !== ressourceRes.data!.id && r.categorie === ressourceRes.data!.categorie)
+            .slice(0, 3);
+          setRelatedRessources(related);
+        }
+      }
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [ressourceId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+      </div>
+    );
+  }
 
   if (!ressource) {
     return (

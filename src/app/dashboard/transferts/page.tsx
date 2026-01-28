@@ -43,27 +43,34 @@ import {
   ArrowRight,
   Filter,
   Download,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
-import { transferts, artistes, projets } from '@/data/mock';
+import { getTransferts, createTransfert, deleteTransfert } from '@/lib/actions/transferts';
+import { toast } from 'sonner';
+import { getArtistes } from '@/lib/actions/artistes';
+import { getProjets } from '@/lib/actions/projets';
+import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
+import type { TransfertWithRelations } from '@/lib/actions/transferts';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { exportTransfertsToCSV } from '@/lib/export';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationTransfer, IllustrationDocuments } from '@/components/illustrations';
-import type { CompteType, Artiste, Projet } from '@/types';
+import type { CompteType } from '@/types';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function TransfertsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [transferts, setTransferts] = useState<TransfertWithRelations[]>([]);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const [projets, setProjets] = useState<ProjetWithStats[]>([]);
 
-  // Prevent hydration mismatch with Radix UI components
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Formulaire
+  // Formulaire - DOIT être avant tout return conditionnel
   const [sourceType, setSourceType] = useState<CompteType>('artiste');
   const [sourceId, setSourceId] = useState<string>('');
   const [destinationType, setDestinationType] = useState<CompteType>('artiste');
@@ -71,16 +78,43 @@ export default function TransfertsPage() {
   const [montant, setMontant] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { canCreate, canEdit } = usePermissions();
+
+  // Fetch data and prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+
+    async function fetchData() {
+      const [transfertsRes, artistesRes, projetsRes] = await Promise.all([
+        getTransferts(),
+        getArtistes(),
+        getProjets(),
+      ]);
+
+      if (transfertsRes.data) setTransferts(transfertsRes.data);
+      if (artistesRes.data) setArtistes(artistesRes.data);
+      if (projetsRes.data) setProjets(projetsRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" />
+      </div>
+    );
+  }
 
   // Filtrage
   const filteredTransferts = transferts.filter((tf) => {
     const searchLower = searchTerm.toLowerCase();
     return (
       tf.description.toLowerCase().includes(searchLower) ||
-      tf.source_artiste?.nom.toLowerCase().includes(searchLower) ||
-      tf.source_projet?.nom.toLowerCase().includes(searchLower) ||
-      tf.destination_artiste?.nom.toLowerCase().includes(searchLower) ||
-      tf.destination_projet?.nom.toLowerCase().includes(searchLower)
+      tf.source_nom?.toLowerCase().includes(searchLower) ||
+      tf.destination_nom?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -88,35 +122,77 @@ export default function TransfertsPage() {
   const totalTransferts = filteredTransferts.reduce((sum, tf) => sum + tf.montant, 0);
 
   // Handler creation transfert
-  const handleCreateTransfert = () => {
-    // Pour le prototype, on ferme simplement le dialog
-    // En production, ceci appellerait une server action ou API
-    console.log('Creation transfert:', {
-      sourceType,
-      sourceId,
-      destinationType,
-      destinationId,
-      montant,
-      description,
+  const handleCreateTransfert = async () => {
+    // Validation
+    if (!sourceId) {
+      toast.error('Veuillez sélectionner une source');
+      return;
+    }
+    if (!destinationId) {
+      toast.error('Veuillez sélectionner une destination');
+      return;
+    }
+    const montantNum = parseFloat(montant);
+    if (!montant || montantNum <= 0) {
+      toast.error('Veuillez entrer un montant valide');
+      return;
+    }
+    if (!description.trim()) {
+      toast.error('Veuillez entrer une description');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const { success, error } = await createTransfert({
       date,
+      montant: montantNum,
+      description: description.trim(),
+      source_type: sourceType,
+      source_artiste_id: sourceType === 'artiste' ? sourceId : null,
+      source_projet_id: sourceType === 'projet' ? sourceId : null,
+      destination_type: destinationType,
+      destination_artiste_id: destinationType === 'artiste' ? destinationId : null,
+      destination_projet_id: destinationType === 'projet' ? destinationId : null,
     });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+
+    toast.success('Transfert effectué avec succès');
     setIsDialogOpen(false);
+
     // Reset form
     setSourceId('');
     setDestinationId('');
     setMontant('');
     setDescription('');
+
+    // Refresh la liste
+    const { data: newTransferts } = await getTransferts();
+    if (newTransferts) setTransferts(newTransferts);
+  };
+
+  // Handler suppression transfert
+  const handleDeleteTransfert = async (id: string) => {
+    const { success, error } = await deleteTransfert(id);
+
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+
+    toast.success('Transfert supprimé');
+    setTransferts(transferts.filter((tf) => tf.id !== id));
   };
 
   // Helper pour afficher source/destination
-  const getCompteLabel = (
-    type: CompteType,
-    artiste?: Artiste,
-    projet?: Projet
-  ): string => {
-    if (type === 'artiste' && artiste) return artiste.nom;
-    if (type === 'projet' && projet) return `${projet.nom} (${projet.code})`;
-    return '-';
+  const getCompteLabel = (nom?: string): string => {
+    return nom || '-';
   };
 
   // Projets actifs uniquement
@@ -139,7 +215,7 @@ export default function TransfertsPage() {
           <Download className="mr-2 h-4 w-4" />
           Exporter CSV
         </Button>
-        {isMounted ? (
+        {canCreate && (isMounted ? (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
@@ -339,6 +415,7 @@ export default function TransfertsPage() {
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
                 className="w-full sm:w-auto"
+                disabled={isSubmitting}
               >
                 Annuler
               </Button>
@@ -346,13 +423,21 @@ export default function TransfertsPage() {
                 onClick={handleCreateTransfert}
                 className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-500 to-purple-600"
                 disabled={
+                  isSubmitting ||
                   !sourceId ||
                   !destinationId ||
                   !montant ||
                   parseFloat(montant) <= 0
                 }
               >
-                Effectuer le transfert
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Traitement...
+                  </>
+                ) : (
+                  'Effectuer le transfert'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -362,7 +447,7 @@ export default function TransfertsPage() {
             <Plus className="mr-2 h-4 w-4" />
             Nouveau transfert
           </Button>
-        )}
+        ))}
       </PageHeader>
 
       {/* Section Resume */}
@@ -468,29 +553,31 @@ export default function TransfertsPage() {
                         variant="outline"
                         className="text-rose-600 border-rose-200 bg-rose-50"
                       >
-                        {getCompteLabel(
-                          tf.source_type,
-                          tf.source_artiste,
-                          tf.source_projet
-                        )}
+                        {getCompteLabel(tf.source_nom)}
                       </Badge>
                       <ArrowRight className="h-3 w-3 text-fuchsia-500 shrink-0" />
                       <Badge
                         variant="outline"
                         className="text-emerald-600 border-emerald-200 bg-emerald-50"
                       >
-                        {getCompteLabel(
-                          tf.destination_type,
-                          tf.destination_artiste,
-                          tf.destination_projet
-                        )}
+                        {getCompteLabel(tf.destination_nom)}
                       </Badge>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
                     <span className="text-fuchsia-600 font-semibold">
                       {formatCurrency(tf.montant)}
                     </span>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                        onClick={() => handleDeleteTransfert(tf.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -518,6 +605,7 @@ export default function TransfertsPage() {
                   <TableHead></TableHead>
                   <TableHead>Destination</TableHead>
                   <TableHead className="text-right">Montant</TableHead>
+                  {canEdit && <TableHead className="w-[50px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -533,11 +621,7 @@ export default function TransfertsPage() {
                         className="text-rose-600 border-rose-200"
                       >
                         {tf.source_type === 'artiste' ? 'Artiste' : 'Projet'}:{' '}
-                        {getCompteLabel(
-                          tf.source_type,
-                          tf.source_artiste,
-                          tf.source_projet
-                        )}
+                        {getCompteLabel(tf.source_nom)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -552,11 +636,7 @@ export default function TransfertsPage() {
                           ? 'Artiste'
                           : 'Projet'}
                         :{' '}
-                        {getCompteLabel(
-                          tf.destination_type,
-                          tf.destination_artiste,
-                          tf.destination_projet
-                        )}
+                        {getCompteLabel(tf.destination_nom)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -564,6 +644,18 @@ export default function TransfertsPage() {
                         {formatCurrency(tf.montant)}
                       </span>
                     </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={() => handleDeleteTransfert(tf.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

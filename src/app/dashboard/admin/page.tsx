@@ -59,8 +59,18 @@ import {
   Download,
   Upload,
   RefreshCw,
+  Mail,
+  ArrowRight,
+  Loader2,
+  BookOpen,
 } from 'lucide-react';
-import { users, transactions, artistes, projets } from '@/data/mock';
+import { getUsers } from '@/lib/actions/admin';
+import { getTransactions } from '@/lib/actions/transactions';
+import { getArtistes } from '@/lib/actions/artistes';
+import { getProjets } from '@/lib/actions/projets';
+import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
+import type { UserProfile } from '@/lib/actions/admin';
+import Link from 'next/link';
 import { formatDate, formatDateLong, getInitials, getRoleColor } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -76,11 +86,40 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [transactionsCount, setTransactionsCount] = useState(0);
+  const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
+  const [projets, setProjets] = useState<ProjetWithStats[]>([]);
 
-  // Prevent hydration mismatch with Radix UI components
+  // Fetch data and prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
+
+    async function fetchData() {
+      const [usersRes, txRes, artistesRes, projetsRes] = await Promise.all([
+        getUsers(),
+        getTransactions(),
+        getArtistes(),
+        getProjets(),
+      ]);
+
+      if (usersRes.data) setUsers(usersRes.data);
+      if (txRes.data) setTransactionsCount(txRes.data.length);
+      if (artistesRes.data) setArtistes(artistesRes.data);
+      if (projetsRes.data) setProjets(projetsRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
+      </div>
+    );
+  }
 
   const filteredUsers = users.filter((user) =>
     user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -97,8 +136,61 @@ export default function AdminPage() {
         icon={<Shield className="h-7 w-7 text-white" />}
       />
 
+      {/* Quick Access Cards */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Invitation Banner */}
+        <Card className="border-indigo-200 bg-linear-to-br from-indigo-50 via-purple-50 to-fuchsia-50">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-lg shrink-0">
+                  <Mail className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Gestion des invitations</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Inviter des membres à rejoindre l&apos;application
+                  </p>
+                </div>
+              </div>
+              <Link href="/dashboard/admin/invitations" className="w-full sm:w-auto">
+                <Button size="sm" className="w-full sm:w-auto">
+                  Gérer
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Ressources Banner */}
+        <Card className="border-teal-200 bg-linear-to-br from-teal-50 via-emerald-50 to-green-50">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-teal-100 rounded-lg shrink-0">
+                  <BookOpen className="h-5 w-5 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Gestion des ressources</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Créer et modifier les guides et ressources ASBL
+                  </p>
+                </div>
+              </div>
+              <Link href="/dashboard/admin/ressources" className="w-full sm:w-auto">
+                <Button size="sm" variant="outline" className="w-full sm:w-auto border-teal-300 hover:bg-teal-50">
+                  Gérer
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card className="card-hover bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Utilisateurs</CardTitle>
@@ -118,7 +210,7 @@ export default function AdminPage() {
             <Activity className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-700">{transactions.length}</div>
+            <div className="text-2xl font-bold text-emerald-700">{transactionsCount}</div>
             <p className="text-xs text-muted-foreground">
               Total en base
             </p>
@@ -163,7 +255,7 @@ export default function AdminPage() {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle>Gestion des utilisateurs</CardTitle>
                   <CardDescription>
@@ -172,7 +264,7 @@ export default function AdminPage() {
                 </div>
                 <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button className="w-full sm:w-auto">
                       <Plus className="mr-2 h-4 w-4" />
                       Nouvel utilisateur
                     </Button>
@@ -247,7 +339,56 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <Table>
+              {/* Mobile Cards */}
+              <div className="block lg:hidden space-y-3">
+                {filteredUsers.map((user) => (
+                  <div key={user.id} className="p-4 border rounded-lg bg-slate-50/50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="h-10 w-10 shrink-0">
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {getInitials(user.nom)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{user.nom}</div>
+                          <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Modifier le rôle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-rose-500">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <Badge variant={getRoleColor(user.role)}>
+                        {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Éditeur' : 'Lecteur'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Créé le {formatDate(user.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table */}
+              <Table className="hidden lg:table">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Utilisateur</TableHead>
@@ -311,7 +452,7 @@ export default function AdminPage() {
               <CardTitle>Permissions par rôle</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Shield className="h-5 w-5 text-red-500" />
@@ -336,7 +477,7 @@ export default function AdminPage() {
                     <li>• Exporter les données</li>
                   </ul>
                 </div>
-                <div className="p-4 border rounded-lg">
+                <div className="p-4 border rounded-lg sm:col-span-2 lg:col-span-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="h-5 w-5 text-gray-500" />
                     <h3 className="font-semibold">Lecteur</h3>
@@ -362,7 +503,22 @@ export default function AdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
+              {/* Mobile Cards */}
+              <div className="block lg:hidden space-y-3">
+                {activityLog.map((log) => (
+                  <div key={log.id} className="p-3 border rounded-lg bg-slate-50/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium text-sm">{log.user}</span>
+                      <Badge variant="outline" className="text-xs shrink-0">{log.action}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">{log.target}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{formatDateLong(log.date)}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table */}
+              <Table className="hidden lg:table">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Utilisateur</TableHead>
@@ -389,7 +545,7 @@ export default function AdminPage() {
         </TabsContent>
 
         <TabsContent value="data" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Export des données</CardTitle>
@@ -458,16 +614,16 @@ export default function AdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-4">
-                <Button variant="outline">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Recalculer les soldes
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <Database className="mr-2 h-4 w-4" />
                   Vérifier l&apos;intégrité
                 </Button>
-                <Button variant="destructive">
+                <Button variant="destructive" className="w-full sm:w-auto">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Purger les données de test
                 </Button>

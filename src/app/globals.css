@@ -185,6 +185,43 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Clickable elements should always have pointer cursor */
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="switch"],
+  [role="link"],
+  [tabindex]:not([tabindex="-1"]),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  label[for],
+  summary,
+  .cursor-pointer,
+  .card-hover,
+  [data-state="open"],
+  [data-state="closed"] {
+    cursor: pointer;
+  }
+
+  /* Disabled elements should have not-allowed cursor */
+  button:disabled,
+  [aria-disabled="true"],
+  .disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* ============================================

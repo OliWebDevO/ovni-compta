@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -31,8 +31,13 @@ import {
   TrendingDown,
   Receipt,
   Pencil,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
-import { getArtisteById, transactions } from '@/data/mock';
+import { getArtisteById, getArtisteTransactions } from '@/lib/actions/artistes';
+import { deleteTransaction } from '@/lib/actions/transactions';
+import { toast } from 'sonner';
+import type { ArtisteWithStats } from '@/types/database';
 import {
   formatCurrency,
   formatDate,
@@ -53,15 +58,19 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { CATEGORIES } from '@/types';
+import { usePermissions } from '@/hooks/usePermissions';
 
-const monthlyData = [
-  { mois: 'Jan', credit: 500, debit: 200 },
-  { mois: 'Fév', credit: 300, debit: 150 },
-  { mois: 'Mar', credit: 800, debit: 400 },
-  { mois: 'Avr', credit: 200, debit: 100 },
-  { mois: 'Mai', credit: 600, debit: 300 },
-  { mois: 'Juin', credit: 400, debit: 250 },
-];
+// Type for artiste transactions
+interface ArtisteTransaction {
+  id: string;
+  date: string;
+  description: string;
+  credit: number;
+  debit: number;
+  categorie: string | null;
+  projet_id: string | null;
+  projet_code?: string;
+}
 
 // Couleurs pour les catégories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -88,15 +97,52 @@ export default function ArtisteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const artiste = getArtisteById(id);
+  const [artiste, setArtiste] = useState<ArtisteWithStats | null>(null);
+  const [artisteTransactions, setArtisteTransactions] = useState<ArtisteTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFoundState, setNotFoundState] = useState(false);
+  const { canEdit } = usePermissions();
 
-  if (!artiste) {
+  useEffect(() => {
+    async function fetchData() {
+      const [artisteRes, txRes] = await Promise.all([
+        getArtisteById(id),
+        getArtisteTransactions(id),
+      ]);
+
+      if (!artisteRes.data) {
+        setNotFoundState(true);
+        return;
+      }
+
+      setArtiste(artisteRes.data);
+      if (txRes.data) setArtisteTransactions(txRes.data);
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [id]);
+
+  const handleDeleteTransaction = async (txId: string) => {
+    const { error } = await deleteTransaction(txId);
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+    toast.success('Transaction supprimée');
+    setArtisteTransactions(artisteTransactions.filter((tx) => tx.id !== txId));
+  };
+
+  if (notFoundState) {
     notFound();
   }
 
-  const artisteTransactions = transactions.filter(
-    (t) => t.artiste_id === artiste.id
-  );
+  if (isLoading || !artiste) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   // Calcul des données par catégorie pour les dépenses (débits)
   const debitsByCategory = artisteTransactions
@@ -138,38 +184,63 @@ export default function ArtisteDetailPage({
     }))
     .sort((a, b) => b.value - a.value);
 
+  // Calcul des données mensuelles pour le graphique d'évolution (6 derniers mois)
+  const monthlyData = (() => {
+    const now = new Date();
+    const months: { mois: string; credit: number; debit: number }[] = [];
+    const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months.push({
+        mois: MOIS[d.getMonth()],
+        credit: 0,
+        debit: 0,
+      });
+
+      artisteTransactions.forEach(tx => {
+        const txDate = new Date(tx.date);
+        const txMonthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        if (txMonthKey === monthKey) {
+          months[months.length - 1].credit += tx.credit;
+          months[months.length - 1].debit += tx.debit;
+        }
+      });
+    }
+
+    return months;
+  })();
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header avec gradient */}
       <div className="animate-slide-up relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 p-6 text-white">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" asChild className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button variant="outline" size="icon" asChild className="bg-white/20 border-white/30 text-white hover:bg-white/30 shrink-0">
               <Link href="/dashboard/artistes">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <Badge className="bg-white/20 text-white border-white/30">
-              {artiste.actif ? 'Actif' : 'Inactif'}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 ring-4 ring-white/30">
+            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 ring-4 ring-white/30 shrink-0">
               <AvatarFallback className="bg-white text-indigo-600 text-xl sm:text-2xl font-bold">
                 {getInitials(artiste.nom)}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">
                 {artiste.nom}
               </h1>
               <p className="text-white/80">Fiche artiste</p>
             </div>
           </div>
-          <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90">
-            <Pencil className="mr-2 h-4 w-4" />
-            Modifier
-          </Button>
+          {canEdit && (
+            <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90">
+              <Pencil className="mr-2 h-4 w-4" />
+              Modifier
+            </Button>
+          )}
         </div>
       </div>
 
@@ -420,8 +491,80 @@ export default function ArtisteDetailPage({
         </Card>
       </div>
 
-      {/* Transactions Table */}
-      <Card className="bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
+      {/* Transactions Mobile Cards */}
+      <div className="block lg:hidden space-y-3">
+        <h2 className="text-lg font-semibold">Historique des transactions</h2>
+        <p className="text-sm text-muted-foreground">
+          {artisteTransactions.length} transaction(s)
+        </p>
+        {artisteTransactions.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">
+                Aucune transaction pour cet artiste
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          artisteTransactions.map((tx) => (
+            <Card key={tx.id} className="bg-gradient-to-br from-slate-50/50 to-gray-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+                      {tx.projet_code && (
+                        <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
+                      )}
+                    </div>
+                    <p className="font-medium mt-1 text-sm truncate">{tx.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                      {tx.credit > 0 ? (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Crédit</p>
+                          <p className="text-emerald-600 font-semibold">+{formatCurrency(tx.credit)}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Débit</p>
+                          <p className="text-rose-500 font-semibold">-{formatCurrency(tx.debit)}</p>
+                        </div>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-blue-500"
+                          asChild
+                        >
+                          <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                          onClick={() => handleDeleteTransaction(tx.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Transactions Table - Desktop */}
+      <Card className="hidden lg:block bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
         <CardHeader>
           <CardTitle>Historique des transactions</CardTitle>
           <CardDescription>
@@ -442,6 +585,7 @@ export default function ArtisteDetailPage({
                   <TableHead>Projet</TableHead>
                   <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="text-right">Débit</TableHead>
+                  {canEdit && <TableHead className="w-[100px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -452,8 +596,8 @@ export default function ArtisteDetailPage({
                     </TableCell>
                     <TableCell>{tx.description}</TableCell>
                     <TableCell>
-                      {tx.projet ? (
-                        <Badge variant="secondary">{tx.projet.code}</Badge>
+                      {tx.projet_code ? (
+                        <Badge variant="secondary">{tx.projet_code}</Badge>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -476,6 +620,30 @@ export default function ArtisteDetailPage({
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-blue-500"
+                            asChild
+                          >
+                            <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                              <Pencil className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                            onClick={() => handleDeleteTransaction(tx.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

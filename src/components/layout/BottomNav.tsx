@@ -12,13 +12,15 @@ import {
   User,
   MoreHorizontal,
   Shield,
-  Settings,
   X,
   BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { currentUser } from '@/data/mock';
+
+interface BottomNavProps {
+  userRole?: 'admin' | 'editor' | 'viewer';
+}
 
 const mainNavItems = [
   {
@@ -87,18 +89,12 @@ const adminNavItems = [
     icon: Shield,
     gradient: 'from-slate-600 to-slate-800',
   },
-  {
-    title: 'Paramètres',
-    url: '/dashboard/admin/settings',
-    icon: Settings,
-    gradient: 'from-slate-500 to-slate-700',
-  },
 ];
 
-export function BottomNav() {
+export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const [showMore, setShowMore] = useState(false);
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = userRole === 'admin';
 
   const isActive = (url: string) => {
     if (url === '/dashboard') {
