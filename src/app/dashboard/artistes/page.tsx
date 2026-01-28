@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -47,16 +47,21 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationArtist, IllustrationWallet } from '@/components/illustrations';
 
+// Hook to safely detect client-side mounting without triggering cascading renders
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,  // Client: always mounted
+    () => false  // Server: not mounted
+  );
+}
+
 export default function ArtistesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactifs, setShowInactifs] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Prevent hydration mismatch with Radix UI components
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useIsMounted();
 
   const filteredArtistes = artistes.filter((artiste) => {
     const matchesSearch = artiste.nom
@@ -96,7 +101,7 @@ export default function ArtistesPage() {
                 Nouvel artiste
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-106.25">
               <DialogHeader>
                 <DialogTitle>Nouvel artiste</DialogTitle>
                 <DialogDescription>
@@ -146,7 +151,7 @@ export default function ArtistesPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Card className="card-hover bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+        <Card className="card-hover bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100">
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-blue-700">{filteredArtistes.length}</div>
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -154,7 +159,7 @@ export default function ArtistesPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="card-hover bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
+        <Card className="card-hover bg-linear-to-br from-violet-50 to-purple-50 border-violet-100">
           <CardContent className="p-4 sm:pt-6">
             <div className={`text-xl sm:text-2xl font-bold ${getSoldeColor(totalSolde)}`}>
               {formatCurrency(totalSolde)}
@@ -162,7 +167,7 @@ export default function ArtistesPage() {
             <p className="text-xs sm:text-sm text-muted-foreground">Solde total</p>
           </CardContent>
         </Card>
-        <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
+        <Card className="card-hover bg-linear-to-br from-emerald-50 to-green-50 border-emerald-100">
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-emerald-600">
               {formatCurrency(totalCredits)}
@@ -170,7 +175,7 @@ export default function ArtistesPage() {
             <p className="text-xs sm:text-sm text-muted-foreground">Total crédits</p>
           </CardContent>
         </Card>
-        <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
+        <Card className="card-hover bg-linear-to-br from-rose-50 to-pink-50 border-rose-100">
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-rose-500">
               {formatCurrency(totalDebits)}
@@ -181,7 +186,7 @@ export default function ArtistesPage() {
       </div>
 
       {/* Filters */}
-      <Card className="bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
+      <Card className="bg-linear-to-br from-slate-50 to-gray-50 border-slate-100">
         <CardContent className="p-4 sm:pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -239,7 +244,7 @@ export default function ArtistesPage() {
         </p>
         {filteredArtistes.map((artiste) => (
           <Link key={artiste.id} href={`/dashboard/artistes/${artiste.id}`}>
-            <Card className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border-blue-100/50 hover:from-blue-50 hover:to-indigo-50 transition-colors">
+            <Card className="bg-linear-to-br from-blue-50/50 to-indigo-50/50 border-blue-100/50 hover:from-blue-50 hover:to-indigo-50 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
@@ -283,7 +288,7 @@ export default function ArtistesPage() {
 
       {/* Artistes Table - Desktop */}
       {filteredArtistes.length > 0 && (
-      <Card className="hidden lg:block bg-gradient-to-br from-indigo-50/40 to-violet-50/40 border-indigo-100/50">
+      <Card className="hidden lg:block bg-linear-to-br from-indigo-50/40 to-violet-50/40 border-indigo-100/50">
         <CardHeader>
           <CardTitle>Liste des artistes</CardTitle>
           <CardDescription>
@@ -300,7 +305,7 @@ export default function ArtistesPage() {
                 <TableHead className="text-right">Débits</TableHead>
                 <TableHead className="text-right">Solde</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
+                <TableHead className="w-25"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
