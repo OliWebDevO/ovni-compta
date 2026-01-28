@@ -311,7 +311,13 @@ export default function DashboardLayout({
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50">
                     <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
-                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+                      <AvatarFallback
+                        className={cn(
+                          "text-white text-xs font-semibold",
+                          !user.couleur && "bg-gradient-to-br from-violet-500 to-purple-600"
+                        )}
+                        style={user.couleur ? { backgroundColor: user.couleur } : undefined}
+                      >
                         {getInitials(user.nom)}
                       </AvatarFallback>
                     </Avatar>
@@ -347,7 +353,7 @@ export default function DashboardLayout({
             ) : (
               <div className="flex items-center gap-2 px-2 py-1.5">
                 <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
-                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+                  <AvatarFallback className="bg-gray-300 text-white text-xs font-semibold">
                     ...
                   </AvatarFallback>
                 </Avatar>

@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface UserProfile {
   id: string;
@@ -91,4 +92,87 @@ export async function getAdminStats(): Promise<{
     },
     error: null,
   };
+}
+
+export async function updateUserRole(
+  userId: string,
+  newRole: 'admin' | 'editor' | 'viewer'
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+
+  // Vérifier que l'utilisateur actuel est admin
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'Non authentifié' };
+  }
+
+  const { data: currentUserProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (currentUserProfile?.role !== 'admin') {
+    return { error: 'Seuls les administrateurs peuvent modifier les rôles' };
+  }
+
+  // Empêcher un admin de changer son propre rôle
+  if (userId === user.id) {
+    return { error: 'Vous ne pouvez pas modifier votre propre rôle' };
+  }
+
+  // Mettre à jour le rôle
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role: newRole })
+    .eq('id', userId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null };
+}
+
+export async function deleteUser(userId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+
+  // Vérifier que l'utilisateur actuel est admin
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'Non authentifié' };
+  }
+
+  const { data: currentUserProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (currentUserProfile?.role !== 'admin') {
+    return { error: 'Seuls les administrateurs peuvent supprimer des utilisateurs' };
+  }
+
+  // Empêcher un admin de se supprimer lui-même
+  if (userId === user.id) {
+    return { error: 'Vous ne pouvez pas supprimer votre propre compte depuis cette interface' };
+  }
+
+  try {
+    const adminClient = createAdminClient();
+
+    // Supprimer l'utilisateur de Supabase Auth (cela supprimera aussi le profil via CASCADE ou trigger)
+    const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+
+    if (authError) {
+      return { error: authError.message };
+    }
+
+    // Supprimer le profil manuellement au cas où il n'y aurait pas de CASCADE
+    await supabase.from('profiles').delete().eq('id', userId);
+
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Erreur lors de la suppression' };
+  }
 }

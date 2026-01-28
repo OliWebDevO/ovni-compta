@@ -776,7 +776,6 @@ function RessourceTable({
               <TableHead className="min-w-[250px]">Titre</TableHead>
               <TableHead className="min-w-[120px]">Catégorie</TableHead>
               <TableHead className="min-w-[150px]">Tags</TableHead>
-              <TableHead className="text-center min-w-[80px]">Important</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -786,6 +785,7 @@ function RessourceTable({
                 <TableCell>
                   <div>
                     <div className="font-medium flex items-center gap-2">
+                      {ressource.important && <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />}
                       {ressource.titre}
                       {ressource.url && (
                         <a
@@ -822,9 +822,6 @@ function RessourceTable({
                       </Badge>
                     )}
                   </div>
-                </TableCell>
-                <TableCell className="text-center">
-                  {ressource.important && <Star className="h-4 w-4 text-amber-500 mx-auto fill-amber-500" />}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>

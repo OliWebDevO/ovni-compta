@@ -64,7 +64,7 @@ import {
   Loader2,
   BookOpen,
 } from 'lucide-react';
-import { getUsers } from '@/lib/actions/admin';
+import { getUsers, deleteUser, updateUserRole } from '@/lib/actions/admin';
 import { getTransactions } from '@/lib/actions/transactions';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
@@ -73,6 +73,17 @@ import type { UserProfile } from '@/lib/actions/admin';
 import Link from 'next/link';
 import { formatDate, formatDateLong, getInitials, getRoleColor } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 const activityLog = [
   { id: 1, user: 'Admin O.V.N.I', action: 'Création transaction', target: 'Loyer Communa janvier', date: '2025-01-12T10:30:00Z' },
@@ -91,6 +102,13 @@ export default function AdminPage() {
   const [transactionsCount, setTransactionsCount] = useState(0);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
   const [projets, setProjets] = useState<ProjetWithStats[]>([]);
+
+  // États pour les dialogs de gestion utilisateur
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch data and prevent hydration mismatch
   useEffect(() => {
@@ -112,6 +130,57 @@ export default function AdminPage() {
     }
     fetchData();
   }, []);
+
+  // Handler pour supprimer un utilisateur
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    setIsSubmitting(true);
+
+    const { error } = await deleteUser(selectedUser.id);
+
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(`${selectedUser.nom} a été supprimé`);
+      setUsers(users.filter((u) => u.id !== selectedUser.id));
+    }
+
+    setIsSubmitting(false);
+    setIsDeleteDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  // Handler pour changer le rôle
+  const handleChangeRole = async () => {
+    if (!selectedUser) return;
+    setIsSubmitting(true);
+
+    const { error } = await updateUserRole(selectedUser.id, newRole);
+
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(`Rôle de ${selectedUser.nom} modifié en ${newRole === 'admin' ? 'Admin' : newRole === 'editor' ? 'Éditeur' : 'Lecteur'}`);
+      setUsers(users.map((u) => (u.id === selectedUser.id ? { ...u, role: newRole } : u)));
+    }
+
+    setIsSubmitting(false);
+    setIsRoleDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  // Ouvrir le dialog de suppression
+  const openDeleteDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Ouvrir le dialog de changement de rôle
+  const openRoleDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setNewRole(user.role);
+    setIsRoleDialogOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -154,7 +223,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <Link href="/dashboard/admin/invitations" className="w-full sm:w-auto">
-                <Button size="sm" className="w-full sm:w-auto">
+                <Button size="sm" className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-md">
                   Gérer
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -179,7 +248,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <Link href="/dashboard/admin/ressources" className="w-full sm:w-auto">
-                <Button size="sm" variant="outline" className="w-full sm:w-auto border-teal-300 hover:bg-teal-50">
+                <Button size="sm" className="w-full sm:w-auto bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md">
                   Gérer
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -264,7 +333,7 @@ export default function AdminPage() {
                 </div>
                 <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white shadow-md">
                       <Plus className="mr-2 h-4 w-4" />
                       Nouvel utilisateur
                     </Button>
@@ -364,11 +433,11 @@ export default function AdminPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openRoleDialog(user)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Modifier le rôle
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-rose-500">
+                          <DropdownMenuItem className="text-rose-500" onClick={() => openDeleteDialog(user)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
                           </DropdownMenuItem>
@@ -428,11 +497,11 @@ export default function AdminPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openRoleDialog(user)}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Modifier le rôle
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-rose-500">
+                            <DropdownMenuItem className="text-rose-500" onClick={() => openDeleteDialog(user)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Supprimer
                             </DropdownMenuItem>
@@ -445,6 +514,93 @@ export default function AdminPage() {
               </Table>
             </CardContent>
           </Card>
+
+          {/* Dialog de confirmation de suppression */}
+          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer l&apos;utilisateur</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Êtes-vous sûr de vouloir supprimer <strong>{selectedUser?.nom}</strong> ?
+                  Cette action est irréversible et supprimera définitivement le compte.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isSubmitting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteUser}
+                  disabled={isSubmitting}
+                  className="bg-rose-500 hover:bg-rose-600"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    'Supprimer'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Dialog de modification du rôle */}
+          <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Modifier le rôle</DialogTitle>
+                <DialogDescription>
+                  Changer le rôle de {selectedUser?.nom}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Nouveau rôle</Label>
+                  <Select value={newRole} onValueChange={(value: 'admin' | 'editor' | 'viewer') => setNewRole(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-red-500" />
+                          Admin - Accès complet
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="editor">
+                        <div className="flex items-center gap-2">
+                          <Pencil className="h-4 w-4 text-blue-500" />
+                          Éditeur - Lecture/Écriture
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="viewer">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-gray-500" />
+                          Lecteur - Lecture seule
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)} disabled={isSubmitting}>
+                  Annuler
+                </Button>
+                <Button onClick={handleChangeRole} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Modification...
+                    </>
+                  ) : (
+                    'Enregistrer'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Roles Explanation */}
           <Card>

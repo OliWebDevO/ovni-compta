@@ -224,7 +224,10 @@ export default function ArtisteDetailPage({
               </Link>
             </Button>
             <Avatar className="h-14 w-14 sm:h-16 sm:w-16 ring-4 ring-white/30 shrink-0">
-              <AvatarFallback className="bg-white text-indigo-600 text-xl sm:text-2xl font-bold">
+              <AvatarFallback
+                className="text-white text-xl sm:text-2xl font-bold"
+                style={{ backgroundColor: artiste.couleur || '#6366f1' }}
+              >
                 {getInitials(artiste.nom)}
               </AvatarFallback>
             </Avatar>

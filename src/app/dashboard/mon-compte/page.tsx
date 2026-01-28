@@ -191,7 +191,10 @@ export default function MonComptePage() {
         <div className="relative z-10 flex flex-col gap-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <Avatar className="h-14 w-14 sm:h-20 sm:w-20 shrink-0 ring-4 ring-white/30 shadow-xl">
-              <AvatarFallback className="bg-white text-blue-600 text-xl sm:text-2xl font-bold">
+              <AvatarFallback
+                className="text-white text-xl sm:text-2xl font-bold"
+                style={{ backgroundColor: artiste.couleur || '#3b82f6' }}
+              >
                 {getInitials(artiste.nom)}
               </AvatarFallback>
             </Avatar>
