@@ -332,3 +332,47 @@ export function IllustrationWallet({ className = '', size = 120 }: IllustrationP
     </svg>
   );
 }
+
+// Illustration transfert entre comptes
+export function IllustrationTransfer({ className = '', size = 120 }: IllustrationProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 120 120"
+      fill="none"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Background */}
+      <circle cx="60" cy="60" r="55" fill="#FDF4FF" />
+
+      {/* Left wallet/account */}
+      <rect x="15" y="40" width="30" height="40" rx="4" fill="#C084FC" />
+      <rect x="18" y="45" width="24" height="8" rx="2" fill="#A855F7" />
+      <text x="30" y="72" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">€</text>
+
+      {/* Right wallet/account */}
+      <rect x="75" y="40" width="30" height="40" rx="4" fill="#86EFAC" />
+      <rect x="78" y="45" width="24" height="8" rx="2" fill="#22C55E" />
+      <text x="90" y="72" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">€</text>
+
+      {/* Transfer arrows */}
+      <path d="M50 52 L70 52" stroke="#A855F7" strokeWidth="3" strokeLinecap="round" />
+      <path d="M65 47 L70 52 L65 57" stroke="#A855F7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+      <path d="M70 68 L50 68" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" />
+      <path d="M55 63 L50 68 L55 73" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Central euro coin */}
+      <circle cx="60" cy="60" r="12" fill="#FDE68A" stroke="#F59E0B" strokeWidth="2" />
+      <text x="60" y="65" textAnchor="middle" fill="#F59E0B" fontSize="12" fontWeight="bold">€</text>
+
+      {/* Decorative elements */}
+      <circle cx="20" cy="25" r="4" fill="#FDE68A" />
+      <circle cx="100" cy="30" r="3" fill="#A78BFA" />
+      <circle cx="105" cy="95" r="4" fill="#86EFAC" />
+      <circle cx="15" cy="90" r="3" fill="#FDA4AF" />
+    </svg>
+  );
+}

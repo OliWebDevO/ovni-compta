@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Receipt,
+  ArrowLeftRight,
   Users,
   FolderKanban,
   BarChart3,
@@ -50,6 +51,17 @@ const menuItems = [
     bgActive: 'bg-gradient-to-r from-emerald-100 to-teal-100',
     borderActive: 'border-emerald-300',
     iconBg: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    title: 'Transferts',
+    url: '/dashboard/transferts',
+    icon: ArrowLeftRight,
+    gradient: 'from-fuchsia-500 to-purple-600',
+    bgHover: 'hover:bg-fuchsia-50',
+    textActive: 'text-fuchsia-700',
+    bgActive: 'bg-gradient-to-r from-fuchsia-100 to-purple-100',
+    borderActive: 'border-fuchsia-300',
+    iconBg: 'bg-fuchsia-100 text-fuchsia-600',
   },
   {
     title: 'Artistes',

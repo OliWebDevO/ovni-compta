@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -34,6 +34,12 @@ import {
 
 export default function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleChange = () => {
     setHasChanges(true);
@@ -65,6 +71,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {isMounted ? (
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">
@@ -418,6 +425,11 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      ) : (
+        <div className="space-y-4">
+          <div className="h-10 bg-muted rounded-md animate-pulse w-64" />
+        </div>
+      )}
     </div>
   );
 }

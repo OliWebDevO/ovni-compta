@@ -1,7 +1,7 @@
 // Données mockées pour le prototype visuel
 // Basées sur les vraies données O.V.N.I
 
-import type { User, Artiste, Projet, Transaction, BilanAnnuel, BilanMensuel, Ressource } from '@/types';
+import type { User, Artiste, Projet, Transaction, BilanAnnuel, BilanMensuel, Ressource, Transfert } from '@/types';
 
 // ==================
 // UTILISATEURS
@@ -1158,6 +1158,78 @@ export const getRessourcesByCategorie = (categorie: string) =>
 export const getImportantRessources = () =>
   mockRessources.filter(r => r.important);
 
+// ==================
+// TRANSFERTS INTERNES
+// ==================
+export const mockTransferts: Transfert[] = [
+  {
+    id: 'tf-1',
+    date: '2025-01-15',
+    montant: 500,
+    description: 'Avance sur cachet projet LVLR',
+    source_type: 'projet',
+    source_projet_id: 'proj-1',
+    destination_type: 'artiste',
+    destination_artiste_id: 'art-2',
+    transaction_debit_id: 'tr-tf-1-debit',
+    transaction_credit_id: 'tr-tf-1-credit',
+    created_at: '2025-01-15T10:00:00Z',
+    updated_at: '2025-01-15T10:00:00Z',
+  },
+  {
+    id: 'tf-2',
+    date: '2025-01-10',
+    montant: 200,
+    description: 'Remboursement matériel son',
+    source_type: 'artiste',
+    source_artiste_id: 'art-1',
+    destination_type: 'artiste',
+    destination_artiste_id: 'art-3',
+    transaction_debit_id: 'tr-tf-2-debit',
+    transaction_credit_id: 'tr-tf-2-credit',
+    created_at: '2025-01-10T14:30:00Z',
+    updated_at: '2025-01-10T14:30:00Z',
+  },
+  {
+    id: 'tf-3',
+    date: '2024-12-20',
+    montant: 750,
+    description: 'Contribution au projet Poema',
+    source_type: 'artiste',
+    source_artiste_id: 'art-2',
+    destination_type: 'projet',
+    destination_projet_id: 'proj-4',
+    transaction_debit_id: 'tr-tf-3-debit',
+    transaction_credit_id: 'tr-tf-3-credit',
+    created_at: '2024-12-20T09:00:00Z',
+    updated_at: '2024-12-20T09:00:00Z',
+  },
+  {
+    id: 'tf-4',
+    date: '2024-11-15',
+    montant: 1200,
+    description: 'Transfert budget résidence',
+    source_type: 'projet',
+    source_projet_id: 'proj-2',
+    destination_type: 'projet',
+    destination_projet_id: 'proj-1',
+    transaction_debit_id: 'tr-tf-4-debit',
+    transaction_credit_id: 'tr-tf-4-credit',
+    created_at: '2024-11-15T16:00:00Z',
+    updated_at: '2024-11-15T16:00:00Z',
+  },
+];
+
+export const getTransfertsWithRelations = (): Transfert[] => {
+  return mockTransferts.map(t => ({
+    ...t,
+    source_artiste: t.source_artiste_id ? getArtisteById(t.source_artiste_id) : undefined,
+    source_projet: t.source_projet_id ? getProjetById(t.source_projet_id) : undefined,
+    destination_artiste: t.destination_artiste_id ? getArtisteById(t.destination_artiste_id) : undefined,
+    destination_projet: t.destination_projet_id ? getProjetById(t.destination_projet_id) : undefined,
+  }));
+};
+
 // Alias exports pour faciliter les imports
 export const artistes = mockArtistes;
 export const projets = mockProjets;
@@ -1166,4 +1238,5 @@ export const bilansAnnuels = mockBilansAnnuels;
 export const bilansMensuels2024 = mockBilansMensuels2024;
 export const users = mockUsers;
 export const ressources = mockRessources;
+export const transferts = getTransfertsWithRelations();
 export { CATEGORIES, RESSOURCE_CATEGORIES } from '@/types';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -71,6 +71,12 @@ const annees = bilansAnnuels.map((b) => b.annee);
 export default function BilansPage() {
   const [selectedYear, setSelectedYear] = useState<string>('2024');
   const chartsRef = useRef<HTMLDivElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Prepare monthly data for export
   const monthlyDataForExport = bilansMensuels2024.map((b) => ({
@@ -152,18 +158,22 @@ export default function BilansPage() {
           gradient="from-amber-500 via-orange-500 to-red-500"
           icon={<BarChart3 className="h-7 w-7 text-white" />}
         >
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-full sm:w-[120px] bg-white/20 border-white/30 text-white shadow-lg">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {annees.map((annee) => (
-                <SelectItem key={annee} value={annee.toString()}>
-                  {annee}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isMounted ? (
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-full sm:w-[120px] bg-white/20 border-white/30 text-white shadow-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {annees.map((annee) => (
+                  <SelectItem key={annee} value={annee.toString()}>
+                    {annee}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="w-full sm:w-[120px] h-10 bg-white/20 border border-white/30 rounded-md shadow-lg" />
+          )}
           <Button
             variant="outline"
             className="w-full sm:w-auto bg-white/20 border-white/30 text-white hover:bg-white/30 shadow-lg"
@@ -259,6 +269,7 @@ export default function BilansPage() {
           className="print-section-header"
         />
 
+        {isMounted ? (
         <Tabs defaultValue="mensuel" className="space-y-4 mt-4">
         <TabsList className="w-full sm:w-auto flex overflow-x-auto">
           <TabsTrigger value="mensuel" className="flex-1 sm:flex-none text-xs sm:text-sm">Vue Mensuelle</TabsTrigger>
@@ -583,6 +594,11 @@ export default function BilansPage() {
           </Card>
         </TabsContent>
         </Tabs>
+        ) : (
+          <div className="space-y-4 mt-4">
+            <div className="w-full sm:w-auto flex h-10 bg-muted rounded-md animate-pulse" />
+          </div>
+        )}
       </div>
     </div>
   );

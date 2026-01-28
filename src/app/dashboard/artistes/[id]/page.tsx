@@ -43,12 +43,16 @@ import {
 import {
   AreaChart,
   Area,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { CATEGORIES } from '@/types';
 
 const monthlyData = [
   { mois: 'Jan', credit: 500, debit: 200 },
@@ -58,6 +62,25 @@ const monthlyData = [
   { mois: 'Mai', credit: 600, debit: 300 },
   { mois: 'Juin', credit: 400, debit: 250 },
 ];
+
+// Couleurs pour les catégories
+const CATEGORY_COLORS: Record<string, string> = {
+  cachet: '#10b981',
+  subvention: '#3b82f6',
+  smart: '#8b5cf6',
+  thoman: '#f59e0b',
+  materiel: '#6366f1',
+  loyer: '#ec4899',
+  deplacement: '#f97316',
+  frais_bancaires: '#64748b',
+  transfert_interne: '#a855f7',
+  autre: '#94a3b8',
+};
+
+const getCategoryLabel = (value: string): string => {
+  const cat = CATEGORIES.find((c) => c.value === value);
+  return cat?.label || value;
+};
 
 export default function ArtisteDetailPage({
   params,
@@ -74,6 +97,46 @@ export default function ArtisteDetailPage({
   const artisteTransactions = transactions.filter(
     (t) => t.artiste_id === artiste.id
   );
+
+  // Calcul des données par catégorie pour les dépenses (débits)
+  const debitsByCategory = artisteTransactions
+    .filter((t) => t.debit > 0)
+    .reduce(
+      (acc, t) => {
+        const cat = t.categorie || 'autre';
+        acc[cat] = (acc[cat] || 0) + t.debit;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+  const debitCategoryData = Object.entries(debitsByCategory)
+    .map(([key, value]) => ({
+      name: getCategoryLabel(key),
+      value,
+      color: CATEGORY_COLORS[key] || CATEGORY_COLORS.autre,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Calcul des données par catégorie pour les rentrées (crédits)
+  const creditsByCategory = artisteTransactions
+    .filter((t) => t.credit > 0)
+    .reduce(
+      (acc, t) => {
+        const cat = t.categorie || 'autre';
+        acc[cat] = (acc[cat] || 0) + t.credit;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+  const creditCategoryData = Object.entries(creditsByCategory)
+    .map(([key, value]) => ({
+      name: getCategoryLabel(key),
+      value,
+      color: CATEGORY_COLORS[key] || CATEGORY_COLORS.autre,
+    }))
+    .sort((a, b) => b.value - a.value);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -242,6 +305,117 @@ export default function ArtisteDetailPage({
                 />
               </AreaChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Category Distribution Charts */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        {/* Dépenses par catégorie */}
+        <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
+          <CardHeader>
+            <CardTitle>Dépenses par catégorie</CardTitle>
+            <CardDescription>
+              Distribution des débits par type de dépense
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {debitCategoryData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={debitCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {debitCategoryData.map((entry, index) => (
+                        <Cell key={`cell-debit-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {debitCategoryData.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span>{entry.name}</span>
+                      </div>
+                      <span className="font-medium text-rose-600">
+                        {formatCurrency(entry.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Aucune dépense enregistrée
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Rentrées par catégorie */}
+        <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
+          <CardHeader>
+            <CardTitle>Rentrées par catégorie</CardTitle>
+            <CardDescription>
+              Distribution des crédits par type de rentrée
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {creditCategoryData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={creditCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {creditCategoryData.map((entry, index) => (
+                        <Cell key={`cell-credit-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {creditCategoryData.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span>{entry.name}</span>
+                      </div>
+                      <span className="font-medium text-emerald-600">
+                        {formatCurrency(entry.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Aucune rentrée enregistrée
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

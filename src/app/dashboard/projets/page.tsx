@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -50,6 +50,12 @@ export default function ProjetsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const filteredProjets = projets.filter((projet) => {
     const matchesSearch =
@@ -73,74 +79,81 @@ export default function ProjetsPage() {
         gradient="from-purple-500 via-fuchsia-500 to-pink-500"
         icon={<FolderKanban className="h-7 w-7 text-white" />}
       >
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau projet
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Nouveau projet</DialogTitle>
-              <DialogDescription>
-                Créer un nouveau projet avec son budget
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="nom">Nom du projet</Label>
-                <Input id="nom" placeholder="Ex: Le Vagabond & Le Renard" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="code">Code</Label>
-                <Input id="code" placeholder="Ex: LVLR" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Description du projet..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date_debut">Date de début</Label>
-                  <Input id="date_debut" type="date" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="date_fin">Date de fin (optionnel)</Label>
-                  <Input id="date_fin" type="date" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="budget">Budget (€)</Label>
-                <Input id="budget" type="number" placeholder="0.00" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="artiste">Artiste associé (optionnel)</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un artiste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {artistes.map((artiste) => (
-                      <SelectItem key={artiste.id} value={artiste.id}>
-                        {artiste.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                Annuler
+        {isMounted ? (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau projet
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Nouveau projet</DialogTitle>
+                <DialogDescription>
+                  Créer un nouveau projet avec son budget
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="nom">Nom du projet</Label>
+                  <Input id="nom" placeholder="Ex: Le Vagabond & Le Renard" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="code">Code</Label>
+                  <Input id="code" placeholder="Ex: LVLR" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Description du projet..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="date_debut">Date de début</Label>
+                    <Input id="date_debut" type="date" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="date_fin">Date de fin (optionnel)</Label>
+                    <Input id="date_fin" type="date" />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="budget">Budget (€)</Label>
+                  <Input id="budget" type="number" placeholder="0.00" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="artiste">Artiste associé (optionnel)</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un artiste" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {artistes.map((artiste) => (
+                        <SelectItem key={artiste.id} value={artiste.id}>
+                          {artiste.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                  Annuler
+                </Button>
+                <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90 shadow-lg">
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau projet
+          </Button>
+        )}
       </PageHeader>
 
       {/* Section header - Aperçu */}
@@ -200,17 +213,21 @@ export default function ProjetsPage() {
                 />
               </div>
             </div>
-            <Select value={filterStatut} onValueChange={setFilterStatut}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Tous les statuts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="actif">Actif</SelectItem>
-                <SelectItem value="termine">Terminé</SelectItem>
-                <SelectItem value="annule">Annulé</SelectItem>
-              </SelectContent>
-            </Select>
+            {isMounted ? (
+              <Select value={filterStatut} onValueChange={setFilterStatut}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Tous les statuts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="actif">Actif</SelectItem>
+                  <SelectItem value="termine">Terminé</SelectItem>
+                  <SelectItem value="annule">Annulé</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="w-full sm:w-[180px] h-10 bg-background border rounded-md" />
+            )}
           </div>
         </CardContent>
       </Card>

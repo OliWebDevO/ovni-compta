@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -51,6 +51,12 @@ export default function ArtistesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactifs, setShowInactifs] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const filteredArtistes = artistes.filter((artiste) => {
     const matchesSearch = artiste.nom
@@ -82,46 +88,53 @@ export default function ArtistesPage() {
         gradient="from-blue-500 via-indigo-500 to-violet-500"
         icon={<Users className="h-7 w-7 text-white" />}
       >
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvel artiste
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Nouvel artiste</DialogTitle>
-              <DialogDescription>
-                Créer une nouvelle fiche artiste
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="nom">Nom</Label>
-                <Input id="nom" placeholder="Nom de l'artiste" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email (optionnel)</Label>
-                <Input id="email" type="email" placeholder="email@example.com" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="telephone">Téléphone (optionnel)</Label>
-                <Input id="telephone" placeholder="+32 xxx xx xx xx" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Input id="notes" placeholder="Notes supplémentaires..." />
-              </div>
-            </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
-                Annuler
+        {isMounted ? (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvel artiste
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Nouvel artiste</DialogTitle>
+                <DialogDescription>
+                  Créer une nouvelle fiche artiste
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="nom">Nom</Label>
+                  <Input id="nom" placeholder="Nom de l'artiste" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email (optionnel)</Label>
+                  <Input id="email" type="email" placeholder="email@example.com" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="telephone">Téléphone (optionnel)</Label>
+                  <Input id="telephone" placeholder="+32 xxx xx xx xx" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input id="notes" placeholder="Notes supplémentaires..." />
+                </div>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                  Annuler
+                </Button>
+                <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90 shadow-lg">
+            <Plus className="mr-2 h-4 w-4" />
+            Nouvel artiste
+          </Button>
+        )}
       </PageHeader>
 
       {/* Section header - Aperçu */}

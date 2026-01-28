@@ -1,4 +1,4 @@
-import { Transaction } from '@/types';
+import { Transaction, Transfert } from '@/types';
 import { formatDate } from './utils';
 
 /**
@@ -51,6 +51,83 @@ export function exportTransactionsToCSV(
     totalCredit.toFixed(2),
     totalDebit.toFixed(2),
     (totalCredit - totalDebit).toFixed(2),
+  ]);
+
+  // Build CSV content with BOM for Excel compatibility
+  const BOM = '\uFEFF';
+  const csvContent =
+    BOM +
+    [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export transferts to CSV file
+ */
+export function exportTransfertsToCSV(
+  transferts: Transfert[],
+  filename: string = 'transferts'
+): void {
+  // CSV headers
+  const headers = [
+    'Date',
+    'Description',
+    'Type Source',
+    'Source',
+    'Type Destination',
+    'Destination',
+    'Montant (€)',
+  ];
+
+  // Helper pour obtenir le label d'un compte
+  const getCompteLabel = (
+    type: 'artiste' | 'projet',
+    artiste?: { nom: string },
+    projet?: { nom: string; code: string }
+  ): string => {
+    if (type === 'artiste' && artiste) return artiste.nom;
+    if (type === 'projet' && projet) return `${projet.nom} (${projet.code})`;
+    return '-';
+  };
+
+  // CSV rows
+  const rows = transferts.map((tf) => {
+    return [
+      formatDate(tf.date),
+      `"${tf.description.replace(/"/g, '""')}"`, // Escape quotes
+      tf.source_type === 'artiste' ? 'Artiste' : 'Projet',
+      getCompteLabel(tf.source_type, tf.source_artiste, tf.source_projet),
+      tf.destination_type === 'artiste' ? 'Artiste' : 'Projet',
+      getCompteLabel(tf.destination_type, tf.destination_artiste, tf.destination_projet),
+      tf.montant.toFixed(2),
+    ];
+  });
+
+  // Add totals row
+  const totalMontant = transferts.reduce((sum, tf) => sum + tf.montant, 0);
+  rows.push([]);
+  rows.push([
+    'TOTAL',
+    '',
+    '',
+    '',
+    '',
+    `${transferts.length} transfert(s)`,
+    totalMontant.toFixed(2),
   ]);
 
   // Build CSV content with BOM for Excel compatibility

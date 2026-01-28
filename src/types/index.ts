@@ -60,6 +60,38 @@ export interface Transaction {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  // Champs pour les transferts internes
+  transfer_id?: string;
+  transfer_type?: 'debit' | 'credit';
+}
+
+// Types pour les transferts internes
+export type CompteType = 'artiste' | 'projet';
+
+export interface Transfert {
+  id: string;
+  date: string;
+  montant: number;
+  description: string;
+  // Source
+  source_type: CompteType;
+  source_artiste_id?: string;
+  source_projet_id?: string;
+  source_artiste?: Artiste;
+  source_projet?: Projet;
+  // Destination
+  destination_type: CompteType;
+  destination_artiste_id?: string;
+  destination_projet_id?: string;
+  destination_artiste?: Artiste;
+  destination_projet?: Projet;
+  // Transactions liées
+  transaction_debit_id: string;
+  transaction_credit_id: string;
+  // Metadata
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BilanAnnuel {
@@ -87,6 +119,7 @@ export type TransactionCategorie =
   | 'deplacement'
   | 'cachet'
   | 'subvention'
+  | 'transfert_interne'
   | 'autre';
 
 export const CATEGORIES: { value: TransactionCategorie; label: string }[] = [
@@ -98,6 +131,7 @@ export const CATEGORIES: { value: TransactionCategorie; label: string }[] = [
   { value: 'loyer', label: 'Loyer' },
   { value: 'deplacement', label: 'Déplacement' },
   { value: 'frais_bancaires', label: 'Frais bancaires' },
+  { value: 'transfert_interne', label: 'Transfert interne' },
   { value: 'autre', label: 'Autre' },
 ];
 

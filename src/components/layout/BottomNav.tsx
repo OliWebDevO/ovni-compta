@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Receipt,
+  ArrowLeftRight,
   Users,
   FolderKanban,
   BarChart3,
@@ -53,6 +54,12 @@ const mainNavItems = [
 ];
 
 const moreNavItems = [
+  {
+    title: 'Transferts',
+    url: '/dashboard/transferts',
+    icon: ArrowLeftRight,
+    gradient: 'from-fuchsia-500 to-purple-500',
+  },
   {
     title: 'Bilans',
     url: '/dashboard/bilans',

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -17,6 +17,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Receipt,
+  ArrowLeftRight,
   Users,
   FolderKanban,
   BarChart3,
@@ -66,6 +67,14 @@ const breadcrumbMap: Record<string, BreadcrumbConfig> = {
     textColor: 'text-emerald-700',
     bgColor: 'bg-emerald-100',
     borderColor: 'border-emerald-300',
+  },
+  transferts: {
+    label: 'Transferts',
+    icon: ArrowLeftRight,
+    gradient: 'from-fuchsia-500 to-purple-600',
+    textColor: 'text-fuchsia-700',
+    bgColor: 'bg-fuchsia-100',
+    borderColor: 'border-fuchsia-300',
   },
   artistes: {
     label: 'Artistes',
@@ -132,6 +141,12 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Get the current page config for styling the header
   const currentSegment = segments[segments.length - 1];
@@ -206,41 +221,51 @@ export default function DashboardLayout({
               </BreadcrumbList>
             </Breadcrumb>
 
-            {/* Profile dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50">
-                  <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
-                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
-                      {getInitials(currentUser.nom)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-sm font-medium text-gray-900 leading-tight">
-                      {currentUser.nom.split(' ')[0]}
-                    </span>
+            {/* Profile dropdown - only render after mount to prevent hydration mismatch */}
+            {isMounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50">
+                    <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
+                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+                        {getInitials(currentUser.nom)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden sm:flex flex-col items-start">
+                      <span className="text-sm font-medium text-gray-900 leading-tight">
+                        {currentUser.nom.split(' ')[0]}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-gray-400 hidden sm:block" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-gray-100">
+                  <div className="px-2 py-2 mb-1">
+                    <p className="font-semibold text-gray-900">{currentUser.nom}</p>
+                    <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                    <Badge
+                      variant={getRoleColor(currentUser.role)}
+                      className="mt-2 text-[10px] font-semibold uppercase tracking-wider"
+                    >
+                      {currentUser.role}
+                    </Badge>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-gray-400 hidden sm:block" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-gray-100">
-                <div className="px-2 py-2 mb-1">
-                  <p className="font-semibold text-gray-900">{currentUser.nom}</p>
-                  <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
-                  <Badge
-                    variant={getRoleColor(currentUser.role)}
-                    className="mt-2 text-[10px] font-semibold uppercase tracking-wider"
-                  >
-                    {currentUser.role}
-                  </Badge>
-                </div>
-                <DropdownMenuSeparator className="bg-gray-100" />
-                <DropdownMenuItem className="rounded-lg cursor-pointer text-rose-600 focus:text-rose-700 focus:bg-rose-50">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Déconnexion
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuSeparator className="bg-gray-100" />
+                  <DropdownMenuItem className="rounded-lg cursor-pointer text-rose-600 focus:text-rose-700 focus:bg-rose-50">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Déconnexion
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
+                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+                    {getInitials(currentUser.nom)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            )}
           </header>
         </div>
 

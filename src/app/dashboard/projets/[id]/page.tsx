@@ -33,6 +33,7 @@ import {
   User,
 } from 'lucide-react';
 import { getProjetById, transactions, getArtisteById } from '@/data/mock';
+import { CATEGORIES } from '@/types';
 import {
   formatCurrency,
   formatDate,
@@ -41,34 +42,32 @@ import {
   getSoldeColor,
 } from '@/lib/utils';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  Tooltip,
+  ResponsiveContainer,
 } from 'recharts';
 
-const monthlyData = [
-  { mois: 'Jan', depenses: 1200 },
-  { mois: 'Fév', depenses: 800 },
-  { mois: 'Mar', depenses: 1500 },
-  { mois: 'Avr', depenses: 600 },
-  { mois: 'Mai', depenses: 900 },
-  { mois: 'Juin', depenses: 1100 },
-];
+// Couleurs pour les catégories
+const CATEGORY_COLORS: Record<string, string> = {
+  cachet: '#10b981',      // emerald
+  subvention: '#3b82f6',  // blue
+  smart: '#8b5cf6',       // violet
+  thoman: '#f59e0b',      // amber
+  materiel: '#6366f1',    // indigo
+  loyer: '#ec4899',       // pink
+  deplacement: '#f97316', // orange
+  frais_bancaires: '#64748b', // slate
+  transfert_interne: '#a855f7', // purple
+  autre: '#94a3b8',       // gray
+};
 
-const categoryData = [
-  { name: 'Cachets', value: 3500, color: '#10b981' },
-  { name: 'Matériel', value: 2000, color: '#6366f1' },
-  { name: 'Déplacements', value: 1200, color: '#f59e0b' },
-  { name: 'Location', value: 800, color: '#8b5cf6' },
-  { name: 'Autres', value: 500, color: '#94a3b8' },
-];
+// Fonction pour obtenir le label d'une catégorie
+const getCategoryLabel = (value: string): string => {
+  const cat = CATEGORIES.find(c => c.value === value);
+  return cat?.label || value;
+};
 
 export default function ProjetDetailPage({
   params,
@@ -91,6 +90,40 @@ export default function ProjetDetailPage({
     ? ((projet.total_debit || 0) / projet.budget) * 100
     : 0;
   const budgetUsedCapped = Math.min(budgetUsed, 100);
+
+  // Calcul de la répartition des débits par catégorie
+  const debitsByCategory = projetTransactions
+    .filter(t => t.debit > 0)
+    .reduce((acc, t) => {
+      const cat = t.categorie || 'autre';
+      acc[cat] = (acc[cat] || 0) + t.debit;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const debitCategoryData = Object.entries(debitsByCategory)
+    .map(([key, value]) => ({
+      name: getCategoryLabel(key),
+      value,
+      color: CATEGORY_COLORS[key] || CATEGORY_COLORS.autre,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Calcul de la répartition des crédits par catégorie
+  const creditsByCategory = projetTransactions
+    .filter(t => t.credit > 0)
+    .reduce((acc, t) => {
+      const cat = t.categorie || 'autre';
+      acc[cat] = (acc[cat] || 0) + t.credit;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const creditCategoryData = Object.entries(creditsByCategory)
+    .map(([key, value]) => ({
+      name: getCategoryLabel(key),
+      value,
+      color: CATEGORY_COLORS[key] || CATEGORY_COLORS.autre,
+    }))
+    .sort((a, b) => b.value - a.value);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -255,61 +288,103 @@ export default function ProjetDetailPage({
           </CardContent>
         </Card>
 
-        {/* Monthly Expenses Chart */}
-        <Card className="card-hover bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100">
+        {/* Dépenses par catégorie */}
+        <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
           <CardHeader>
-            <CardTitle>Dépenses mensuelles</CardTitle>
-            <CardDescription>Évolution sur 6 mois</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+              Dépenses par catégorie
+            </CardTitle>
+            <CardDescription>Distribution des débits</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mois" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Bar dataKey="depenses" fill="#fda4af" name="Dépenses" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {debitCategoryData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={debitCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={35}
+                      outerRadius={65}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {debitCategoryData.map((entry, index) => (
+                        <Cell key={`cell-debit-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {debitCategoryData.map((cat) => (
+                    <div key={cat.name} className="flex items-center gap-1 text-xs">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span>{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                Aucune dépense enregistrée
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Category Breakdown */}
-        <Card className="card-hover bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
+        {/* Rentrées par catégorie */}
+        <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
           <CardHeader>
-            <CardTitle>Répartition par catégorie</CardTitle>
-            <CardDescription>Distribution des dépenses</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              Rentrées par catégorie
+            </CardTitle>
+            <CardDescription>Distribution des crédits</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+            {creditCategoryData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={creditCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={35}
+                      outerRadius={65}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {creditCategoryData.map((entry, index) => (
+                        <Cell key={`cell-credit-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {creditCategoryData.map((cat) => (
+                    <div key={cat.name} className="flex items-center gap-1 text-xs">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span>{cat.name}</span>
+                    </div>
                   ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap gap-2 mt-2 justify-center">
-              {categoryData.map((cat) => (
-                <div key={cat.name} className="flex items-center gap-1 text-xs">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span>{cat.name}</span>
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                Aucune rentrée enregistrée
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

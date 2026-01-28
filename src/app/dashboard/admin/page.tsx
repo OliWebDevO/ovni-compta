@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -75,6 +75,12 @@ const activityLog = [
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const filteredUsers = users.filter((user) =>
     user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -146,6 +152,7 @@ export default function AdminPage() {
         </Card>
       </div>
 
+      {isMounted ? (
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
@@ -469,6 +476,11 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      ) : (
+        <div className="space-y-4">
+          <div className="h-10 bg-muted rounded-md animate-pulse w-64" />
+        </div>
+      )}
     </div>
   );
 }
