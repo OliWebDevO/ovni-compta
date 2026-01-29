@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import {
   Card,
@@ -23,6 +24,17 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowLeft,
   Calendar,
   Euro,
@@ -34,7 +46,7 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
-import { getProjetById, getProjetTransactions, getProjetArtistes } from '@/lib/actions/projets';
+import { getProjetById, getProjetTransactions, getProjetArtistes, deleteProjet } from '@/lib/actions/projets';
 import { deleteTransaction } from '@/lib/actions/transactions';
 import { toast } from 'sonner';
 import type { ProjetWithStats } from '@/types/database';
@@ -101,12 +113,14 @@ export default function ProjetDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [projet, setProjet] = useState<ProjetWithStats | null>(null);
   const [projetTransactions, setProjetTransactions] = useState<ProjetTransaction[]>([]);
   const [projetArtistes, setProjetArtistes] = useState<ProjetArtiste[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notFoundState, setNotFoundState] = useState(false);
-  const { canEdit } = usePermissions();
+  const { canEdit, isAdmin } = usePermissions();
 
   useEffect(() => {
     async function fetchData() {
@@ -137,6 +151,18 @@ export default function ProjetDetailPage({
     }
     toast.success('Transaction supprimée');
     setProjetTransactions(projetTransactions.filter((tx) => tx.id !== txId));
+  };
+
+  const handleDeleteProjet = async () => {
+    setIsDeleting(true);
+    const { error } = await deleteProjet(id);
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      setIsDeleting(false);
+      return;
+    }
+    toast.success('Projet supprimé');
+    router.push('/dashboard/projets');
   };
 
   if (notFoundState) {
@@ -210,10 +236,51 @@ export default function ProjetDetailPage({
             </div>
           </div>
           {canEdit && (
-            <Button className="w-full sm:w-auto bg-white text-fuchsia-600 hover:bg-white/90">
-              <Pencil className="mr-2 h-4 w-4" />
-              Modifier
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button className="flex-1 sm:flex-none bg-white text-fuchsia-600 hover:bg-white/90">
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+              {isAdmin && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex-1 sm:flex-none bg-white/20 border-white/30 text-white hover:bg-red-500 hover:border-red-500"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer ce projet ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Cette action est irréversible. Toutes les transactions associées au projet
+                        <strong> {projet.nom}</strong> seront également supprimées.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteProjet}
+                        disabled={isDeleting}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Suppression...
+                          </>
+                        ) : (
+                          'Oui, supprimer'
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           )}
         </div>
       </div>

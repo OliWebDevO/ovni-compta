@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           id: string;
           email: string;
+          code: string;
           artiste_id: string | null;
           can_create_artiste: boolean;
           role: 'admin' | 'editor' | 'viewer';
@@ -73,6 +74,7 @@ export type Database = {
         Insert: {
           id?: string;
           email: string;
+          code: string;
           artiste_id?: string | null;
           can_create_artiste?: boolean;
           role?: 'admin' | 'editor' | 'viewer';
@@ -86,6 +88,7 @@ export type Database = {
         Update: {
           id?: string;
           email?: string;
+          code?: string;
           artiste_id?: string | null;
           can_create_artiste?: boolean;
           role?: 'admin' | 'editor' | 'viewer';

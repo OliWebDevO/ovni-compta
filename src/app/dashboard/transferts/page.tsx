@@ -45,8 +45,9 @@ import {
   Download,
   Loader2,
   Trash2,
+  Pencil,
 } from 'lucide-react';
-import { getTransferts, createTransfert, deleteTransfert } from '@/lib/actions/transferts';
+import { getTransferts, createTransfert, updateTransfert, deleteTransfert } from '@/lib/actions/transferts';
 import { toast } from 'sonner';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
@@ -64,13 +65,15 @@ import { usePermissions } from '@/hooks/usePermissions';
 export default function TransfertsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTransfert, setEditingTransfert] = useState<TransfertWithRelations | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [transferts, setTransferts] = useState<TransfertWithRelations[]>([]);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
   const [projets, setProjets] = useState<ProjetWithStats[]>([]);
 
-  // Formulaire - DOIT être avant tout return conditionnel
+  // Formulaire création - DOIT être avant tout return conditionnel
   const [sourceType, setSourceType] = useState<CompteType>('artiste');
   const [sourceId, setSourceId] = useState<string>('');
   const [destinationType, setDestinationType] = useState<CompteType>('artiste');
@@ -79,6 +82,17 @@ export default function TransfertsPage() {
   const [description, setDescription] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Formulaire édition
+  const [editSourceType, setEditSourceType] = useState<CompteType>('artiste');
+  const [editSourceId, setEditSourceId] = useState<string>('');
+  const [editDestinationType, setEditDestinationType] = useState<CompteType>('artiste');
+  const [editDestinationId, setEditDestinationId] = useState<string>('');
+  const [editMontant, setEditMontant] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
+  const [editDate, setEditDate] = useState<string>('');
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+
   const { canCreate, canEdit } = usePermissions();
 
   // Fetch data and prevent hydration mismatch
@@ -188,6 +202,72 @@ export default function TransfertsPage() {
 
     toast.success('Transfert supprimé');
     setTransferts(transferts.filter((tf) => tf.id !== id));
+  };
+
+  // Handler ouverture édition
+  const handleOpenEdit = (tf: TransfertWithRelations) => {
+    setEditingTransfert(tf);
+    setEditDate(tf.date);
+    setEditDescription(tf.description);
+    setEditMontant(tf.montant.toString());
+    setEditSourceType(tf.source_type);
+    setEditSourceId(tf.source_artiste_id || tf.source_projet_id || '');
+    setEditDestinationType(tf.destination_type);
+    setEditDestinationId(tf.destination_artiste_id || tf.destination_projet_id || '');
+    setIsEditDialogOpen(true);
+  };
+
+  // Handler mise à jour transfert
+  const handleUpdateTransfert = async () => {
+    if (!editingTransfert) return;
+
+    // Validation
+    if (!editSourceId) {
+      toast.error('Veuillez sélectionner une source');
+      return;
+    }
+    if (!editDestinationId) {
+      toast.error('Veuillez sélectionner une destination');
+      return;
+    }
+    const montantNum = parseFloat(editMontant);
+    if (!editMontant || montantNum <= 0) {
+      toast.error('Veuillez entrer un montant valide');
+      return;
+    }
+    if (!editDescription.trim()) {
+      toast.error('Veuillez entrer une description');
+      return;
+    }
+
+    setIsEditSubmitting(true);
+
+    const { success, error } = await updateTransfert(editingTransfert.id, {
+      date: editDate,
+      montant: montantNum,
+      description: editDescription.trim(),
+      source_type: editSourceType,
+      source_artiste_id: editSourceType === 'artiste' ? editSourceId : null,
+      source_projet_id: editSourceType === 'projet' ? editSourceId : null,
+      destination_type: editDestinationType,
+      destination_artiste_id: editDestinationType === 'artiste' ? editDestinationId : null,
+      destination_projet_id: editDestinationType === 'projet' ? editDestinationId : null,
+    });
+
+    setIsEditSubmitting(false);
+
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      return;
+    }
+
+    toast.success('Transfert modifié avec succès');
+    setIsEditDialogOpen(false);
+    setEditingTransfert(null);
+
+    // Refresh la liste
+    const { data: newTransferts } = await getTransferts();
+    if (newTransferts) setTransferts(newTransferts);
   };
 
   // Helper pour afficher source/destination
@@ -450,6 +530,230 @@ export default function TransfertsPage() {
         ))}
       </PageHeader>
 
+      {/* Edit Dialog */}
+      {isMounted && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Modifier le transfert</DialogTitle>
+              <DialogDescription>
+                Modifier les détails du transfert interne
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              {/* Date */}
+              <div className="grid gap-2">
+                <Label htmlFor="edit-date">Date</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+              </div>
+
+              {/* SOURCE */}
+              <div className="p-4 rounded-lg bg-rose-50 border border-rose-100">
+                <Label className="text-rose-700 font-semibold mb-3 block">
+                  Source (Debit)
+                </Label>
+                <div className="grid gap-3">
+                  <Select
+                    value={editSourceType}
+                    onValueChange={(v) => {
+                      setEditSourceType(v as CompteType);
+                      setEditSourceId('');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Type de compte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="artiste">Artiste</SelectItem>
+                      <SelectItem value="projet">Projet</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {editSourceType === 'artiste' ? (
+                    <Select value={editSourceId} onValueChange={setEditSourceId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selectionner un artiste" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {artistes.map((a) => (
+                          <SelectItem
+                            key={a.id}
+                            value={a.id}
+                            disabled={
+                              a.id === editDestinationId &&
+                              editDestinationType === 'artiste'
+                            }
+                          >
+                            {a.nom} ({formatCurrency(a.solde || 0)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select value={editSourceId} onValueChange={setEditSourceId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selectionner un projet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projetsActifs.map((p) => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            disabled={
+                              p.id === editDestinationId &&
+                              editDestinationType === 'projet'
+                            }
+                          >
+                            {p.nom} ({p.code}) - {formatCurrency(p.solde || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+
+              {/* Fleche visuelle */}
+              <div className="flex justify-center">
+                <div className="p-2 rounded-full bg-fuchsia-100">
+                  <ArrowRight className="h-5 w-5 text-fuchsia-600" />
+                </div>
+              </div>
+
+              {/* DESTINATION */}
+              <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                <Label className="text-emerald-700 font-semibold mb-3 block">
+                  Destination (Credit)
+                </Label>
+                <div className="grid gap-3">
+                  <Select
+                    value={editDestinationType}
+                    onValueChange={(v) => {
+                      setEditDestinationType(v as CompteType);
+                      setEditDestinationId('');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Type de compte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="artiste">Artiste</SelectItem>
+                      <SelectItem value="projet">Projet</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {editDestinationType === 'artiste' ? (
+                    <Select
+                      value={editDestinationId}
+                      onValueChange={setEditDestinationId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selectionner un artiste" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {artistes.map((a) => (
+                          <SelectItem
+                            key={a.id}
+                            value={a.id}
+                            disabled={
+                              a.id === editSourceId && editSourceType === 'artiste'
+                            }
+                          >
+                            {a.nom} ({formatCurrency(a.solde || 0)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select
+                      value={editDestinationId}
+                      onValueChange={setEditDestinationId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selectionner un projet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projetsActifs.map((p) => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            disabled={
+                              p.id === editSourceId && editSourceType === 'projet'
+                            }
+                          >
+                            {p.nom} ({p.code}) - {formatCurrency(p.solde || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+
+              {/* Montant */}
+              <div className="grid gap-2">
+                <Label htmlFor="edit-montant">Montant (EUR)</Label>
+                <Input
+                  id="edit-montant"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={editMontant}
+                  onChange={(e) => setEditMontant(e.target.value)}
+                />
+              </div>
+
+              {/* Description */}
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Input
+                  id="edit-description"
+                  placeholder="Motif du transfert..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                className="w-full sm:w-auto"
+                disabled={isEditSubmitting}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleUpdateTransfert}
+                className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-500 to-purple-600"
+                disabled={
+                  isEditSubmitting ||
+                  !editSourceId ||
+                  !editDestinationId ||
+                  !editMontant ||
+                  parseFloat(editMontant) <= 0
+                }
+              >
+                {isEditSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  'Enregistrer les modifications'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Section Resume */}
       <SectionHeader
         icon={<IllustrationTransfer size={60} />}
@@ -569,14 +873,24 @@ export default function TransfertsPage() {
                       {formatCurrency(tf.montant)}
                     </span>
                     {canEdit && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                        onClick={() => handleDeleteTransfert(tf.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-fuchsia-500 hover:text-fuchsia-700 hover:bg-fuchsia-50"
+                          onClick={() => handleOpenEdit(tf)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={() => handleDeleteTransfert(tf.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -605,7 +919,7 @@ export default function TransfertsPage() {
                   <TableHead></TableHead>
                   <TableHead>Destination</TableHead>
                   <TableHead className="text-right">Montant</TableHead>
-                  {canEdit && <TableHead className="w-[50px]"></TableHead>}
+                  {canEdit && <TableHead className="w-[100px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -646,14 +960,24 @@ export default function TransfertsPage() {
                     </TableCell>
                     {canEdit && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                          onClick={() => handleDeleteTransfert(tf.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-fuchsia-500 hover:text-fuchsia-700 hover:bg-fuchsia-50"
+                            onClick={() => handleOpenEdit(tf)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => handleDeleteTransfert(tf.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

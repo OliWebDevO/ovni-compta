@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import type { BilanAnnuel, BilanMensuel } from '@/types/database';
+import type { BilanAnnuel, BilanMensuel, TransactionWithRelations } from '@/types/database';
 
 export async function getBilansAnnuels(): Promise<{
   data: BilanAnnuel[] | null;
@@ -86,4 +86,78 @@ export async function getBilansLast12Months(): Promise<{
   });
 
   return { data: filteredData, error: null };
+}
+
+/**
+ * Récupère les transactions pour le bilan (SANS les transferts internes)
+ * Ces transactions sont destinées à l'export fiscal
+ */
+/**
+ * Récupère les années disponibles et ajoute l'année courante si nécessaire.
+ * Note: bilans_annuels est une View SQL calculée automatiquement à partir des transactions.
+ * Si une année n'a pas de transactions, elle n'apparaîtra pas dans la view,
+ * mais on l'ajoute quand même au dropdown pour permettre la sélection.
+ */
+export async function getAvailableYears(): Promise<{
+  data: number[] | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+  const currentYear = new Date().getFullYear();
+
+  const { data, error } = await supabase
+    .from('bilans_annuels')
+    .select('annee')
+    .order('annee', { ascending: false });
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  const years = (data || []).map((b) => b.annee);
+
+  // Ajouter l'année courante si elle n'existe pas encore (pas de transactions pour cette année)
+  if (!years.includes(currentYear)) {
+    years.unshift(currentYear);
+  }
+
+  return { data: years, error: null };
+}
+
+export async function getBilanTransactions(): Promise<{
+  data: TransactionWithRelations[] | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*, artistes ( nom, couleur ), projets ( code, nom )')
+    .is('transfert_id', null) // Exclure les transferts internes (par ID)
+    .neq('categorie', 'transfert_interne') // Exclure les transferts internes (par catégorie)
+    .order('date', { ascending: false });
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  const transactions: TransactionWithRelations[] = (data || []).map((t) => ({
+    id: t.id,
+    date: t.date,
+    description: t.description,
+    credit: t.credit,
+    debit: t.debit,
+    categorie: t.categorie,
+    artiste_id: t.artiste_id,
+    projet_id: t.projet_id,
+    transfert_id: t.transfert_id,
+    created_at: t.created_at,
+    updated_at: t.updated_at,
+    artiste_nom: (t.artistes as { nom: string; couleur: string | null } | null)?.nom,
+    artiste_couleur: (t.artistes as { nom: string; couleur: string | null } | null)?.couleur ?? undefined,
+    projet_code: (t.projets as { code: string; nom: string } | null)?.code,
+    projet_nom: (t.projets as { code: string; nom: string } | null)?.nom,
+  }));
+
+  return { data: transactions, error: null };
 }

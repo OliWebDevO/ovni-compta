@@ -39,7 +39,9 @@ import {
   Users,
   Loader2,
 } from 'lucide-react';
-import { getArtistes } from '@/lib/actions/artistes';
+import { getArtistes, createArtiste } from '@/lib/actions/artistes';
+import { toast } from 'sonner';
+import { ColorPicker } from '@/components/ui/color-picker';
 import type { ArtisteWithStats } from '@/types/database';
 import { formatCurrency, getInitials, getSoldeColor } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -63,8 +65,55 @@ export default function ArtistesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const isMounted = useIsMounted();
   const { canCreate } = usePermissions();
+
+  // Form state
+  const [formNom, setFormNom] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formTelephone, setFormTelephone] = useState('');
+  const [formNotes, setFormNotes] = useState('');
+  const [formCouleur, setFormCouleur] = useState('#4DABF7');
+
+  const resetForm = () => {
+    setFormNom('');
+    setFormEmail('');
+    setFormTelephone('');
+    setFormNotes('');
+    setFormCouleur('#4DABF7');
+  };
+
+  const handleCreateArtiste = async () => {
+    if (!formNom.trim()) {
+      toast.error('Le nom est requis');
+      return;
+    }
+
+    setIsCreating(true);
+    const { data, error } = await createArtiste({
+      nom: formNom.trim(),
+      email: formEmail.trim() || null,
+      telephone: formTelephone.trim() || null,
+      notes: formNotes.trim() || null,
+      couleur: formCouleur,
+    });
+
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      setIsCreating(false);
+      return;
+    }
+
+    toast.success('Artiste créé avec succès');
+    setIsDialogOpen(false);
+    resetForm();
+    setIsCreating(false);
+
+    // Refresh list
+    const { data: refreshed } = await getArtistes();
+    if (refreshed) setArtistes(refreshed);
+  };
 
   useEffect(() => {
     async function fetchArtistes() {
@@ -118,7 +167,7 @@ export default function ArtistesPage() {
                   Nouvel artiste
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-106.25">
+              <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>Nouvel artiste</DialogTitle>
                   <DialogDescription>
@@ -127,27 +176,74 @@ export default function ArtistesPage() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="nom">Nom</Label>
-                    <Input id="nom" placeholder="Nom de l'artiste" />
+                    <Label htmlFor="nom">Nom *</Label>
+                    <Input
+                      id="nom"
+                      placeholder="Nom de l'artiste"
+                      value={formNom}
+                      onChange={(e) => setFormNom(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email (optionnel)</Label>
-                    <Input id="email" type="email" placeholder="email@example.com" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={formEmail}
+                      onChange={(e) => setFormEmail(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="telephone">Téléphone (optionnel)</Label>
-                    <Input id="telephone" placeholder="+32 xxx xx xx xx" />
+                    <Input
+                      id="telephone"
+                      placeholder="+32 xxx xx xx xx"
+                      value={formTelephone}
+                      onChange={(e) => setFormTelephone(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="notes">Notes</Label>
-                    <Input id="notes" placeholder="Notes supplémentaires..." />
+                    <Label htmlFor="notes">Notes (optionnel)</Label>
+                    <Input
+                      id="notes"
+                      placeholder="Notes supplémentaires..."
+                      value={formNotes}
+                      onChange={(e) => setFormNotes(e.target.value)}
+                    />
                   </div>
+                  <ColorPicker
+                    value={formCouleur}
+                    onChange={setFormCouleur}
+                    label="Couleur"
+                  />
                 </div>
                 <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      resetForm();
+                    }}
+                    className="w-full sm:w-auto"
+                    disabled={isCreating}
+                  >
                     Annuler
                   </Button>
-                  <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+                  <Button
+                    onClick={handleCreateArtiste}
+                    className="w-full sm:w-auto"
+                    disabled={isCreating}
+                  >
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Création...
+                      </>
+                    ) : (
+                      'Créer'
+                    )}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react';
-import { getRecentTransactions } from '@/lib/actions/transactions';
+import { getRecentTransactions, getGlobalStats } from '@/lib/actions/transactions';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
 import { getBilansAnnuels, getBilansLast12Months } from '@/lib/actions/bilans';
@@ -90,12 +90,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const [txRes, artistesRes, projetsRes, bilansRes, mensuelsRes] = await Promise.all([
+      const [txRes, artistesRes, projetsRes, bilansRes, mensuelsRes, statsRes] = await Promise.all([
         getRecentTransactions(5),
         getArtistes(),
         getProjets(),
         getBilansAnnuels(),
         getBilansLast12Months(),
+        getGlobalStats(),
       ]);
 
       if (txRes.data) setRecentTransactions(txRes.data);
@@ -103,21 +104,13 @@ export default function DashboardPage() {
       if (projetsRes.data) setProjets(projetsRes.data);
       if (bilansRes.data) setBilansAnnuels(bilansRes.data);
 
-      // Calculate totals from artistes AND projets
-      if (artistesRes.data && projetsRes.data) {
-        const artistesCredits = artistesRes.data.reduce((sum, a) => sum + (a.total_credit || 0), 0);
-        const artistesDebits = artistesRes.data.reduce((sum, a) => sum + (a.total_debit || 0), 0);
-        const artistesTx = artistesRes.data.reduce((sum, a) => sum + (a.nb_transactions || 0), 0);
-
-        const projetsCredits = projetsRes.data.reduce((sum, p) => sum + (p.total_credit || 0), 0);
-        const projetsDebits = projetsRes.data.reduce((sum, p) => sum + (p.total_debit || 0), 0);
-        const projetsTx = projetsRes.data.reduce((sum, p) => sum + (p.nb_transactions || 0), 0);
-
+      // Use global stats from all transactions (including those without artiste/projet)
+      if (statsRes.data) {
         setTotals({
-          solde: (artistesCredits + projetsCredits) - (artistesDebits + projetsDebits),
-          totalCredits: artistesCredits + projetsCredits,
-          totalDebits: artistesDebits + projetsDebits,
-          transactionsCount: artistesTx + projetsTx,
+          solde: statsRes.data.solde,
+          totalCredits: statsRes.data.totalCredits,
+          totalDebits: statsRes.data.totalDebits,
+          transactionsCount: statsRes.data.transactionsCount,
         });
       }
 

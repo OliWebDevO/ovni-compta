@@ -167,3 +167,41 @@ export async function updateArtiste(
 
   return { success: true, error: null };
 }
+
+export async function deleteArtiste(id: string): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  // Vérifier que l'utilisateur est admin
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Non authentifié.' };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    return { success: false, error: 'Seuls les administrateurs peuvent supprimer un artiste.' };
+  }
+
+  // Supprimer l'artiste (les transactions associées seront supprimées par cascade ou ON DELETE SET NULL selon la config DB)
+  const { error } = await supabase
+    .from('artistes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, error: null };
+}

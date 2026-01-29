@@ -148,6 +148,88 @@ export async function createTransfert(input: {
   return { success: true, error: null };
 }
 
+export async function updateTransfert(
+  id: string,
+  input: {
+    date: string;
+    montant: number;
+    description: string;
+    source_type: 'artiste' | 'projet';
+    source_artiste_id: string | null;
+    source_projet_id: string | null;
+    destination_type: 'artiste' | 'projet';
+    destination_artiste_id: string | null;
+    destination_projet_id: string | null;
+  }
+): Promise<{ success: boolean; error: string | null }> {
+  const supabase = await createClient();
+
+  // Récupérer le transfert existant avec les IDs des transactions
+  const { data: existingTransfert, error: fetchError } = await supabase
+    .from('transferts')
+    .select('transaction_debit_id, transaction_credit_id')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !existingTransfert) {
+    return { success: false, error: fetchError?.message || 'Transfert non trouvé' };
+  }
+
+  // Mettre à jour la transaction de débit
+  const { error: debitError } = await supabase
+    .from('transactions')
+    .update({
+      date: input.date,
+      description: `Transfert: ${input.description}`,
+      debit: input.montant,
+      artiste_id: input.source_type === 'artiste' ? input.source_artiste_id : null,
+      projet_id: input.source_type === 'projet' ? input.source_projet_id : null,
+    })
+    .eq('id', existingTransfert.transaction_debit_id);
+
+  if (debitError) {
+    return { success: false, error: debitError.message };
+  }
+
+  // Mettre à jour la transaction de crédit
+  const { error: creditError } = await supabase
+    .from('transactions')
+    .update({
+      date: input.date,
+      description: `Transfert: ${input.description}`,
+      credit: input.montant,
+      artiste_id: input.destination_type === 'artiste' ? input.destination_artiste_id : null,
+      projet_id: input.destination_type === 'projet' ? input.destination_projet_id : null,
+    })
+    .eq('id', existingTransfert.transaction_credit_id);
+
+  if (creditError) {
+    return { success: false, error: creditError.message };
+  }
+
+  // Mettre à jour le transfert
+  const { error: transfertError } = await supabase
+    .from('transferts')
+    .update({
+      date: input.date,
+      montant: input.montant,
+      description: input.description,
+      source_type: input.source_type,
+      source_artiste_id: input.source_artiste_id,
+      source_projet_id: input.source_projet_id,
+      destination_type: input.destination_type,
+      destination_artiste_id: input.destination_artiste_id,
+      destination_projet_id: input.destination_projet_id,
+    })
+    .eq('id', id);
+
+  if (transfertError) {
+    return { success: false, error: transfertError.message };
+  }
+
+  return { success: true, error: null };
+}
+
 export async function deleteTransfert(id: string): Promise<{
   success: boolean;
   error: string | null;

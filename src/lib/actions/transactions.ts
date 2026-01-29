@@ -76,6 +76,39 @@ export async function getRecentTransactions(limit: number = 5): Promise<{
   return { data: transactions, error: null };
 }
 
+export async function getGlobalStats(): Promise<{
+  data: {
+    totalCredits: number;
+    totalDebits: number;
+    solde: number;
+    transactionsCount: number;
+  } | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('credit, debit');
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  const totalCredits = (data || []).reduce((sum, t) => sum + (t.credit || 0), 0);
+  const totalDebits = (data || []).reduce((sum, t) => sum + (t.debit || 0), 0);
+
+  return {
+    data: {
+      totalCredits,
+      totalDebits,
+      solde: totalCredits - totalDebits,
+      transactionsCount: data?.length || 0,
+    },
+    error: null,
+  };
+}
+
 export async function getTransaction(id: string): Promise<{
   data: TransactionWithRelations | null;
   error: string | null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -56,6 +56,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { IllustrationWallet, IllustrationDocuments } from '@/components/illustrations';
 import { usePermissions } from '@/hooks/usePermissions';
 
+const ITEMS_PER_PAGE = 30;
+
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArtiste, setFilterArtiste] = useState<string>('all');
@@ -64,6 +66,8 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionWithRelations[]>([]);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
   const [projets, setProjets] = useState<ProjetWithStats[]>([]);
+  const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const { canEdit, canCreate } = usePermissions();
 
   // Fetch data
@@ -82,6 +86,39 @@ export default function TransactionsPage() {
     }
     fetchData();
   }, []);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setDisplayCount(ITEMS_PER_PAGE);
+  }, [searchTerm, filterArtiste, filterProjet]);
+
+  // Load more function
+  const loadMore = useCallback(() => {
+    setDisplayCount((prev) => prev + ITEMS_PER_PAGE);
+  }, []);
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [loadMore]);
 
   const handleDelete = async (id: string) => {
     const { error } = await deleteTransaction(id);
@@ -111,6 +148,10 @@ export default function TransactionsPage() {
       filterProjet === 'all' || tx.projet_id === filterProjet;
     return matchesSearch && matchesArtiste && matchesProjet;
   });
+
+  // Lazy loading: only display a subset of transactions
+  const displayedTransactions = filteredTransactions.slice(0, displayCount);
+  const hasMore = displayCount < filteredTransactions.length;
 
   const totalCredits = filteredTransactions.reduce((sum, tx) => sum + tx.credit, 0);
   const totalDebits = filteredTransactions.reduce((sum, tx) => sum + tx.debit, 0);
@@ -258,10 +299,10 @@ export default function TransactionsPage() {
       {filteredTransactions.length > 0 && (
       <div className="block lg:hidden space-y-3">
         <p className="text-sm text-muted-foreground px-1">
-          {filteredTransactions.length} transaction(s) trouvée(s)
+          {displayedTransactions.length} sur {filteredTransactions.length} transaction(s)
         </p>
         <TooltipProvider>
-          {filteredTransactions.map((tx) => (
+          {displayedTransactions.map((tx) => (
             <Card key={tx.id} className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -328,6 +369,20 @@ export default function TransactionsPage() {
             </Card>
           ))}
         </TooltipProvider>
+
+        {/* Load more section - Mobile */}
+        {hasMore && (
+          <div ref={loadMoreRef} className="flex justify-center py-4">
+            <Button
+              variant="outline"
+              onClick={loadMore}
+              className="w-full sm:w-auto"
+            >
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Charger plus ({filteredTransactions.length - displayedTransactions.length} restantes)
+            </Button>
+          </div>
+        )}
       </div>
       )}
 
@@ -337,7 +392,7 @@ export default function TransactionsPage() {
         <CardHeader>
           <CardTitle>Liste des transactions</CardTitle>
           <CardDescription>
-            {filteredTransactions.length} transaction(s) trouvée(s)
+            {displayedTransactions.length} sur {filteredTransactions.length} transaction(s)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -355,7 +410,7 @@ export default function TransactionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.map((tx) => (
+                {displayedTransactions.map((tx) => (
                   <TableRow
                     key={tx.id}
                     className="hover:bg-teal-50/50 transition-colors"
@@ -435,6 +490,19 @@ export default function TransactionsPage() {
               </TableBody>
             </Table>
           </TooltipProvider>
+
+          {/* Load more section - Desktop */}
+          {hasMore && (
+            <div className="flex justify-center pt-6 border-t mt-4">
+              <Button
+                variant="outline"
+                onClick={loadMore}
+              >
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Charger plus ({filteredTransactions.length - displayedTransactions.length} restantes)
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       )}

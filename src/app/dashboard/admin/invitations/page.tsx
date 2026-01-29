@@ -70,7 +70,7 @@ import {
   Copy,
   ArrowLeft,
   Loader2,
-  RefreshCw,
+  Key,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatDate } from '@/lib/utils';
@@ -81,7 +81,7 @@ import {
   getArtistes,
   createInvitation,
   deleteInvitation,
-  resendInvitationEmail,
+  getInvitationMessage,
   type Invitation,
 } from '@/lib/invitations/actions';
 
@@ -112,6 +112,13 @@ export default function InvitationsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Result dialog state
+  const [resultDialog, setResultDialog] = useState<{
+    open: boolean;
+    code: string;
+    message: string;
+  }>({ open: false, code: '', message: '' });
+
   // Form state
   const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<'admin' | 'editor' | 'viewer'>('editor');
@@ -138,7 +145,8 @@ export default function InvitationsPage() {
   const filteredInvitations = invitations.filter(
     (inv) =>
       inv.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inv.artiste_nom && inv.artiste_nom.toLowerCase().includes(searchTerm.toLowerCase()))
+      (inv.artiste_nom && inv.artiste_nom.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      inv.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const pendingCount = invitations.filter((i) => !i.used).length;
@@ -153,12 +161,11 @@ export default function InvitationsPage() {
       artiste_id: formArtisteId === 'none' ? null : formArtisteId,
       can_create_artiste: formInviteType === 'new',
       notes: formNotes || null,
-      inviteType: formInviteType,
     });
 
     if (result.error) {
       toast.error(result.error);
-    } else {
+    } else if (result.code && result.message) {
       // Recharger la liste
       const updated = await getInvitations();
       if (updated.data) setInvitations(updated.data);
@@ -166,13 +173,12 @@ export default function InvitationsPage() {
       setIsDialogOpen(false);
       resetForm();
 
-      if (result.emailSent) {
-        toast.success('Invitation créée et email envoyé !');
-      } else {
-        toast.warning(
-          "Invitation créée, mais l'email n'a pas pu être envoyé. Partagez le lien manuellement."
-        );
-      }
+      // Afficher le dialog avec le code et message
+      setResultDialog({
+        open: true,
+        code: result.code,
+        message: result.message,
+      });
     }
     setIsSubmitting(false);
   };
@@ -188,13 +194,19 @@ export default function InvitationsPage() {
     setDeleteId(null);
   };
 
-  const handleResendEmail = async (id: string) => {
-    const result = await resendInvitationEmail(id);
+  const handleCopyMessage = async (id: string) => {
+    const result = await getInvitationMessage(id);
     if (result.error) {
       toast.error(result.error);
-    } else {
-      toast.success('Email renvoyé !');
+    } else if (result.message) {
+      navigator.clipboard.writeText(result.message);
+      toast.success('Message copié dans le presse-papier');
     }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success('Code copié');
   };
 
   const resetForm = () => {
@@ -203,12 +215,6 @@ export default function InvitationsPage() {
     setFormArtisteId('none');
     setFormInviteType('existing');
     setFormNotes('');
-  };
-
-  const copyEmailLink = (email: string) => {
-    const url = `${window.location.origin}/register?email=${encodeURIComponent(email)}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Lien copié dans le presse-papier');
   };
 
   const getRoleBadge = (role: string) => {
@@ -270,7 +276,7 @@ export default function InvitationsPage() {
 
       <PageHeader
         title="Gestion des invitations"
-        description="Invitez des utilisateurs et liez-les à leurs comptes artistes existants"
+        description="Invitez des utilisateurs avec un code d'activation"
         gradient="from-indigo-700 via-purple-700 to-fuchsia-700"
         icon={<Mail className="h-7 w-7 text-white" />}
       />
@@ -318,7 +324,7 @@ export default function InvitationsPage() {
             <div>
               <CardTitle>Invitations</CardTitle>
               <CardDescription>
-                Les utilisateurs invités pourront s&apos;inscrire et accéder aux données de leur artiste
+                Créez une invitation et partagez le code d&apos;activation avec la personne
               </CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -332,7 +338,7 @@ export default function InvitationsPage() {
                 <DialogHeader>
                   <DialogTitle>Créer une invitation</DialogTitle>
                   <DialogDescription>
-                    Un email sera automatiquement envoyé à la personne invitée avec un lien d&apos;inscription.
+                    Un code d&apos;activation sera généré. Vous pourrez le partager avec la personne invitée.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -484,9 +490,9 @@ export default function InvitationsPage() {
                     {isSubmitting ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Mail className="mr-2 h-4 w-4" />
+                      <Key className="mr-2 h-4 w-4" />
                     )}
-                    {isSubmitting ? 'Envoi...' : "Créer l'invitation"}
+                    {isSubmitting ? 'Création...' : 'Générer le code'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -498,7 +504,7 @@ export default function InvitationsPage() {
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par email ou artiste..."
+                placeholder="Rechercher par email, artiste ou code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -516,6 +522,7 @@ export default function InvitationsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Code</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Artiste lié</TableHead>
                   <TableHead>Rôle</TableHead>
@@ -527,13 +534,18 @@ export default function InvitationsPage() {
               <TableBody>
                 {filteredInvitations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Aucune invitation trouvée
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredInvitations.map((inv) => (
                     <TableRow key={inv.id}>
+                      <TableCell>
+                        <code className="px-2 py-1 bg-slate-100 rounded text-sm font-mono font-semibold">
+                          {inv.code}
+                        </code>
+                      </TableCell>
                       <TableCell className="font-medium">{inv.email}</TableCell>
                       <TableCell>
                         {inv.artiste_nom ? (
@@ -560,16 +572,14 @@ export default function InvitationsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => copyEmailLink(inv.email)}>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Copier le lien
+                            <DropdownMenuItem onClick={() => handleCopyCode(inv.code)}>
+                              <Key className="mr-2 h-4 w-4" />
+                              Copier le code
                             </DropdownMenuItem>
-                            {!inv.used && (
-                              <DropdownMenuItem onClick={() => handleResendEmail(inv.id)}>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Renvoyer l&apos;email
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onClick={() => handleCopyMessage(inv.id)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copier le message complet
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-rose-500"
@@ -599,20 +609,72 @@ export default function InvitationsPage() {
         <CardContent>
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
             <li>
-              <strong className="text-foreground">Créez une invitation</strong> avec l&apos;email de la personne et sélectionnez son artiste associé
+              <strong className="text-foreground">Créez une invitation</strong> avec l&apos;email de la personne
             </li>
             <li>
-              <strong className="text-foreground">Un email est automatiquement envoyé</strong> à la personne avec un lien d&apos;inscription
+              <strong className="text-foreground">Un code d&apos;activation est généré</strong> (ex: AB3K9X)
             </li>
             <li>
-              <strong className="text-foreground">L&apos;utilisateur s&apos;inscrit</strong> en cliquant sur le lien dans l&apos;email
+              <strong className="text-foreground">Copiez le message</strong> et envoyez-le par email, WhatsApp, etc.
             </li>
             <li>
-              <strong className="text-foreground">Son compte est automatiquement lié</strong> à son profil artiste et il peut accéder à ses données
+              <strong className="text-foreground">L&apos;utilisateur s&apos;inscrit</strong> en entrant le code sur la page d&apos;inscription
             </li>
           </ol>
         </CardContent>
       </Card>
+
+      {/* Result Dialog - Affiche le code après création */}
+      <Dialog open={resultDialog.open} onOpenChange={(open) => setResultDialog({ ...resultDialog, open })}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Invitation créée !
+            </DialogTitle>
+            <DialogDescription>
+              Copiez le message ci-dessous et envoyez-le à la personne invitée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-center gap-4 p-4 bg-slate-50 rounded-lg">
+              <span className="text-sm text-muted-foreground">Code :</span>
+              <code className="px-4 py-2 bg-white border rounded-lg text-2xl font-mono font-bold tracking-widest">
+                {resultDialog.code}
+              </code>
+              <Button variant="outline" size="sm" onClick={() => handleCopyCode(resultDialog.code)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label>Message à envoyer</Label>
+              <Textarea
+                readOnly
+                value={resultDialog.message}
+                rows={8}
+                className="font-mono text-sm bg-slate-50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResultDialog({ ...resultDialog, open: false })}
+            >
+              Fermer
+            </Button>
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(resultDialog.message);
+                toast.success('Message copié !');
+              }}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copier le message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
@@ -620,7 +682,7 @@ export default function InvitationsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Révoquer cette invitation ?</AlertDialogTitle>
             <AlertDialogDescription>
-              L&apos;utilisateur ne pourra plus s&apos;inscrire avec cet email. Cette action est irréversible.
+              L&apos;utilisateur ne pourra plus s&apos;inscrire avec ce code. Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

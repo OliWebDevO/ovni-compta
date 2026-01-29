@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import {
   Card,
@@ -23,6 +24,17 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowLeft,
   Mail,
   Phone,
@@ -34,7 +46,7 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
-import { getArtisteById, getArtisteTransactions } from '@/lib/actions/artistes';
+import { getArtisteById, getArtisteTransactions, deleteArtiste } from '@/lib/actions/artistes';
 import { deleteTransaction } from '@/lib/actions/transactions';
 import { toast } from 'sonner';
 import type { ArtisteWithStats } from '@/types/database';
@@ -97,11 +109,13 @@ export default function ArtisteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [artiste, setArtiste] = useState<ArtisteWithStats | null>(null);
   const [artisteTransactions, setArtisteTransactions] = useState<ArtisteTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notFoundState, setNotFoundState] = useState(false);
-  const { canEdit } = usePermissions();
+  const { canEdit, isAdmin } = usePermissions();
 
   useEffect(() => {
     async function fetchData() {
@@ -130,6 +144,18 @@ export default function ArtisteDetailPage({
     }
     toast.success('Transaction supprimée');
     setArtisteTransactions(artisteTransactions.filter((tx) => tx.id !== txId));
+  };
+
+  const handleDeleteArtiste = async () => {
+    setIsDeleting(true);
+    const { error } = await deleteArtiste(id);
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      setIsDeleting(false);
+      return;
+    }
+    toast.success('Artiste supprimé');
+    router.push('/dashboard/artistes');
   };
 
   if (notFoundState) {
@@ -239,10 +265,51 @@ export default function ArtisteDetailPage({
             </div>
           </div>
           {canEdit && (
-            <Button className="w-full sm:w-auto bg-white text-indigo-600 hover:bg-white/90">
-              <Pencil className="mr-2 h-4 w-4" />
-              Modifier
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button className="flex-1 sm:flex-none bg-white text-indigo-600 hover:bg-white/90">
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+              {isAdmin && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex-1 sm:flex-none bg-white/20 border-white/30 text-white hover:bg-red-500 hover:border-red-500"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer cet artiste ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Cette action est irréversible. Toutes les transactions associées à
+                        <strong> {artiste.nom}</strong> seront également supprimées.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteArtiste}
+                        disabled={isDeleting}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Suppression...
+                          </>
+                        ) : (
+                          'Oui, supprimer'
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           )}
         </div>
       </div>

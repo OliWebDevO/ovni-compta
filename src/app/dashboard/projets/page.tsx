@@ -39,7 +39,8 @@ import {
   FolderKanban,
   Loader2,
 } from 'lucide-react';
-import { getProjets } from '@/lib/actions/projets';
+import { getProjets, createProjet } from '@/lib/actions/projets';
+import { toast } from 'sonner';
 import { getArtistes } from '@/lib/actions/artistes';
 import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -55,9 +56,63 @@ export default function ProjetsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [projets, setProjets] = useState<ProjetWithStats[]>([]);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
   const { canCreate } = usePermissions();
+
+  // Form state
+  const [formNom, setFormNom] = useState('');
+  const [formCode, setFormCode] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formDateDebut, setFormDateDebut] = useState('');
+  const [formDateFin, setFormDateFin] = useState('');
+  const [formBudget, setFormBudget] = useState('');
+
+  const resetForm = () => {
+    setFormNom('');
+    setFormCode('');
+    setFormDescription('');
+    setFormDateDebut('');
+    setFormDateFin('');
+    setFormBudget('');
+  };
+
+  const handleCreateProjet = async () => {
+    if (!formNom.trim()) {
+      toast.error('Le nom est requis');
+      return;
+    }
+    if (!formCode.trim()) {
+      toast.error('Le code est requis');
+      return;
+    }
+
+    setIsCreating(true);
+    const { data, error } = await createProjet({
+      nom: formNom.trim(),
+      code: formCode.trim().toUpperCase(),
+      description: formDescription.trim() || null,
+      date_debut: formDateDebut || null,
+      date_fin: formDateFin || null,
+      budget: formBudget ? parseFloat(formBudget) : null,
+    });
+
+    if (error) {
+      toast.error(`Erreur: ${error}`);
+      setIsCreating(false);
+      return;
+    }
+
+    toast.success('Projet créé avec succès');
+    setIsDialogOpen(false);
+    resetForm();
+    setIsCreating(false);
+
+    // Refresh list
+    const { data: refreshed } = await getProjets();
+    if (refreshed) setProjets(refreshed);
+  };
 
   // Fetch data and prevent hydration mismatch
   useEffect(() => {
@@ -93,9 +148,9 @@ export default function ProjetsPage() {
     return matchesSearch && matchesStatut;
   });
 
-  const projetsActifs = projets.filter((p) => p.statut === 'actif').length;
-  const budgetTotal = projets.reduce((sum, p) => sum + (p.budget || 0), 0);
-  const depensesTotal = projets.reduce((sum, p) => sum + (p.total_debit || 0), 0);
+  const totalCredits = projets.reduce((sum, p) => sum + (p.total_credit || 0), 0);
+  const totalDebits = projets.reduce((sum, p) => sum + (p.total_debit || 0), 0);
+  const solde = totalCredits - totalDebits;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -124,55 +179,90 @@ export default function ProjetsPage() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="nom">Nom du projet</Label>
-                    <Input id="nom" placeholder="Ex: Le Vagabond & Le Renard" />
+                    <Label htmlFor="nom">Nom du projet *</Label>
+                    <Input
+                      id="nom"
+                      placeholder="Ex: Le Vagabond & Le Renard"
+                      value={formNom}
+                      onChange={(e) => setFormNom(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="code">Code</Label>
-                    <Input id="code" placeholder="Ex: LVLR" />
+                    <Label htmlFor="code">Code *</Label>
+                    <Input
+                      id="code"
+                      placeholder="Ex: LVLR"
+                      value={formCode}
+                      onChange={(e) => setFormCode(e.target.value.toUpperCase())}
+                    />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">Description (optionnel)</Label>
                     <Textarea
                       id="description"
                       placeholder="Description du projet..."
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="date_debut">Date de début</Label>
-                      <Input id="date_debut" type="date" />
+                      <Input
+                        id="date_debut"
+                        type="date"
+                        value={formDateDebut}
+                        onChange={(e) => setFormDateDebut(e.target.value)}
+                      />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="date_fin">Date de fin (optionnel)</Label>
-                      <Input id="date_fin" type="date" />
+                      <Label htmlFor="date_fin">Date de fin</Label>
+                      <Input
+                        id="date_fin"
+                        type="date"
+                        value={formDateFin}
+                        onChange={(e) => setFormDateFin(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="budget">Budget (€)</Label>
-                    <Input id="budget" type="number" placeholder="0.00" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="artiste">Artiste associé (optionnel)</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un artiste" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {artistes.map((artiste) => (
-                          <SelectItem key={artiste.id} value={artiste.id}>
-                            {artiste.nom}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="budget"
+                      type="number"
+                      placeholder="0.00"
+                      step="0.01"
+                      value={formBudget}
+                      onChange={(e) => setFormBudget(e.target.value)}
+                    />
                   </div>
                 </div>
                 <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      resetForm();
+                    }}
+                    className="w-full sm:w-auto"
+                    disabled={isCreating}
+                  >
                     Annuler
                   </Button>
-                  <Button onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Créer</Button>
+                  <Button
+                    onClick={handleCreateProjet}
+                    className="w-full sm:w-auto"
+                    disabled={isCreating}
+                  >
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Création...
+                      </>
+                    ) : (
+                      'Créer'
+                    )}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -203,26 +293,28 @@ export default function ProjetsPage() {
             <p className="text-xs sm:text-sm text-muted-foreground">Projets total</p>
           </CardContent>
         </Card>
+        <Card className="card-hover bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100">
+          <CardContent className="p-4 sm:pt-6">
+            <div className={`text-xl sm:text-2xl font-bold ${solde >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+              {formatCurrency(solde)}
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Solde</p>
+          </CardContent>
+        </Card>
         <Card className="card-hover bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-emerald-600">
-              {projetsActifs}
+              {formatCurrency(totalCredits)}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">Projets actifs</p>
-          </CardContent>
-        </Card>
-        <Card className="card-hover bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-100">
-          <CardContent className="p-4 sm:pt-6">
-            <div className="text-xl sm:text-2xl font-bold text-amber-700">{formatCurrency(budgetTotal)}</div>
-            <p className="text-xs sm:text-sm text-muted-foreground">Budget total alloué</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Crédits</p>
           </CardContent>
         </Card>
         <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
           <CardContent className="p-4 sm:pt-6">
             <div className="text-xl sm:text-2xl font-bold text-rose-500">
-              {formatCurrency(depensesTotal)}
+              {formatCurrency(totalDebits)}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">Dépenses totales</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Débits</p>
           </CardContent>
         </Card>
       </div>

@@ -170,3 +170,41 @@ export async function updateProjet(
 
   return { success: true, error: null };
 }
+
+export async function deleteProjet(id: string): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  // Vérifier que l'utilisateur est admin
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Non authentifié.' };
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    return { success: false, error: 'Seuls les administrateurs peuvent supprimer un projet.' };
+  }
+
+  // Supprimer le projet (les transactions et associations seront supprimées par CASCADE)
+  const { error } = await supabase
+    .from('projets')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, error: null };
+}

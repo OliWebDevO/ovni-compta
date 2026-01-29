@@ -1,8 +1,6 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { resend, EMAIL_FROM } from '@/lib/email/resend';
-import { buildInvitationEmail } from '@/lib/email/templates/invitation';
 
 // =============================================
 // Types
@@ -11,6 +9,7 @@ import { buildInvitationEmail } from '@/lib/email/templates/invitation';
 export interface Invitation {
   id: string;
   email: string;
+  code: string;
   role: 'admin' | 'editor' | 'viewer';
   artiste_id: string | null;
   artiste_nom?: string;
@@ -29,7 +28,13 @@ export interface CreateInvitationInput {
   artiste_id: string | null;
   can_create_artiste: boolean;
   notes: string | null;
-  inviteType: 'existing' | 'new' | 'viewer';
+}
+
+export interface CreateInvitationResult {
+  success: boolean;
+  code: string | null;
+  message: string | null;
+  error: string | null;
 }
 
 interface ArtisteOption {
@@ -37,6 +42,32 @@ interface ArtisteOption {
   nom: string;
   couleur: string | null;
   actif: boolean;
+}
+
+// =============================================
+// Helpers
+// =============================================
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sans I, O, 0, 1 pour éviter confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function buildInvitationMessage(code: string, registerUrl: string): string {
+  return `Bonjour,
+
+Vous êtes invité(e) à rejoindre la plateforme de gestion comptable de l'ASBL O.V.N.I.
+
+Votre code d'activation : ${code}
+
+Pour créer votre compte, rendez-vous sur :
+${registerUrl}
+
+À bientôt !`;
 }
 
 // =============================================
@@ -62,10 +93,10 @@ export async function getInvitations(): Promise<{
     return { data: null, error: error.message };
   }
 
-  // Aplatir les jointures
   const invitations: Invitation[] = (data || []).map((row) => ({
     id: row.id,
     email: row.email,
+    code: row.code,
     role: row.role,
     artiste_id: row.artiste_id,
     artiste_nom: (row.artistes as { nom: string } | null)?.nom,
@@ -100,11 +131,7 @@ export async function getArtistes(): Promise<{
   return { data: data as ArtisteOption[], error: null };
 }
 
-export async function createInvitation(input: CreateInvitationInput): Promise<{
-  success: boolean;
-  emailSent: boolean;
-  error: string | null;
-}> {
+export async function createInvitation(input: CreateInvitationInput): Promise<CreateInvitationResult> {
   const supabase = await createClient();
 
   // Récupérer l'utilisateur connecté
@@ -113,74 +140,62 @@ export async function createInvitation(input: CreateInvitationInput): Promise<{
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, emailSent: false, error: 'Non authentifié.' };
+    return { success: false, code: null, message: null, error: 'Non authentifié.' };
+  }
+
+  // Générer un code unique
+  let code = generateCode();
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  // S'assurer que le code est unique
+  while (attempts < maxAttempts) {
+    const { data: existing } = await supabase
+      .from('allowed_emails')
+      .select('id')
+      .eq('code', code)
+      .single();
+
+    if (!existing) break;
+    code = generateCode();
+    attempts++;
+  }
+
+  if (attempts >= maxAttempts) {
+    return { success: false, code: null, message: null, error: 'Impossible de générer un code unique.' };
   }
 
   // Insérer l'invitation en base
-  const { data: invitation, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from('allowed_emails')
     .insert({
       email: input.email,
+      code,
       role: input.role,
       artiste_id: input.artiste_id,
       can_create_artiste: input.can_create_artiste,
       invited_by: user.id,
       notes: input.notes,
-    })
-    .select()
-    .single();
+    });
 
   if (insertError) {
     if (insertError.code === '23505') {
       return {
         success: false,
-        emailSent: false,
+        code: null,
+        message: null,
         error: 'Cet email a déjà une invitation en cours.',
       };
     }
-    return { success: false, emailSent: false, error: insertError.message };
+    return { success: false, code: null, message: null, error: insertError.message };
   }
 
-  // Récupérer le nom de l'artiste si applicable
-  let artisteName: string | undefined;
-  if (input.artiste_id) {
-    const { data: artiste } = await supabase
-      .from('artistes')
-      .select('nom')
-      .eq('id', input.artiste_id)
-      .single();
-    artisteName = artiste?.nom;
-  }
-
-  // Construire l'URL d'inscription
+  // Construire l'URL d'inscription et le message
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const registerUrl = `${appUrl}/register?email=${encodeURIComponent(input.email)}`;
+  const registerUrl = `${appUrl}/register`;
+  const message = buildInvitationMessage(code, registerUrl);
 
-  // Envoyer l'email
-  try {
-    const { error: emailError } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: input.email,
-      subject: 'Invitation - O.V.N.I Compta',
-      html: buildInvitationEmail({
-        inviteType: input.inviteType,
-        artisteName,
-        role: input.role,
-        registerUrl,
-        notes: input.notes,
-      }),
-    });
-
-    if (emailError) {
-      console.error('Erreur envoi email Resend:', emailError);
-      return { success: true, emailSent: false, error: null };
-    }
-
-    return { success: true, emailSent: true, error: null };
-  } catch (err) {
-    console.error('Erreur envoi email:', err);
-    return { success: true, emailSent: false, error: null };
-  }
+  return { success: true, code, message, error: null };
 }
 
 export async function deleteInvitation(id: string): Promise<{
@@ -202,62 +217,64 @@ export async function deleteInvitation(id: string): Promise<{
   return { success: true, error: null };
 }
 
-export async function resendInvitationEmail(id: string): Promise<{
-  success: boolean;
+export async function getInvitationByCode(code: string): Promise<{
+  data: {
+    email: string;
+    artiste_id: string | null;
+    artiste_nom: string | null;
+    can_create_artiste: boolean;
+  } | null;
   error: string | null;
 }> {
   const supabase = await createClient();
 
-  // Récupérer l'invitation avec l'artiste associé
-  const { data: invitation, error: fetchError } = await supabase
+  const { data, error } = await supabase
     .from('allowed_emails')
-    .select('*, artistes ( nom )')
+    .select('email, artiste_id, can_create_artiste, artistes ( nom )')
+    .eq('code', code.toUpperCase())
+    .eq('used', false)
+    .single();
+
+  if (error) {
+    console.error('Erreur getInvitationByCode:', error);
+    return { data: null, error: 'Code invalide ou déjà utilisé.' };
+  }
+
+  if (!data) {
+    return { data: null, error: 'Code invalide ou déjà utilisé.' };
+  }
+
+  return {
+    data: {
+      email: data.email,
+      artiste_id: data.artiste_id,
+      artiste_nom: (data.artistes as { nom: string } | null)?.nom || null,
+      can_create_artiste: data.can_create_artiste,
+    },
+    error: null,
+  };
+}
+
+export async function getInvitationMessage(id: string): Promise<{
+  code: string | null;
+  message: string | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('allowed_emails')
+    .select('code')
     .eq('id', id)
     .single();
 
-  if (fetchError || !invitation) {
-    return { success: false, error: 'Invitation introuvable.' };
-  }
-
-  if (invitation.used) {
-    return { success: false, error: 'Cette invitation a déjà été utilisée.' };
-  }
-
-  // Déterminer le type d'invitation
-  let inviteType: 'existing' | 'new' | 'viewer';
-  if (invitation.artiste_id) {
-    inviteType = 'existing';
-  } else if (invitation.can_create_artiste) {
-    inviteType = 'new';
-  } else {
-    inviteType = 'viewer';
+  if (error || !data) {
+    return { code: null, message: null, error: 'Invitation introuvable.' };
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const registerUrl = `${appUrl}/register?email=${encodeURIComponent(invitation.email)}`;
+  const registerUrl = `${appUrl}/register`;
+  const message = buildInvitationMessage(data.code, registerUrl);
 
-  try {
-    const { error: emailError } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: invitation.email,
-      subject: 'Rappel - Invitation O.V.N.I Compta',
-      html: buildInvitationEmail({
-        inviteType,
-        artisteName: (invitation.artistes as { nom: string } | null)?.nom,
-        role: invitation.role,
-        registerUrl,
-        notes: invitation.notes,
-      }),
-    });
-
-    if (emailError) {
-      console.error('Erreur renvoi email Resend:', emailError);
-      return { success: false, error: "L'email n'a pas pu être envoyé." };
-    }
-
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('Erreur renvoi email:', err);
-    return { success: false, error: "L'email n'a pas pu être envoyé." };
-  }
+  return { code: data.code, message, error: null };
 }

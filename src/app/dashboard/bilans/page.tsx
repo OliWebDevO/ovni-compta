@@ -36,10 +36,14 @@ import {
   FileText,
   Loader2,
 } from 'lucide-react';
-import { getBilansAnnuels, getBilansMensuels } from '@/lib/actions/bilans';
-import { getTransactions } from '@/lib/actions/transactions';
+import { getBilansAnnuels, getBilansMensuels, getBilanTransactions, getAvailableYears } from '@/lib/actions/bilans';
 import type { BilanAnnuel, BilanMensuel, TransactionWithRelations } from '@/types/database';
-import { formatCurrency, getSoldeColor, MOIS } from '@/lib/utils';
+import { formatCurrency, formatDate, getSoldeColor, MOIS } from '@/lib/utils';
+
+const getCategoryLabel = (value: string): string => {
+  const cat = CATEGORIES.find((c) => c.value === value);
+  return cat?.label || value;
+};
 import { exportBilanToCSV, exportYearTransactionsToCSV } from '@/lib/export';
 import { TEXT_COLORS } from '@/lib/colors';
 import {
@@ -53,7 +57,8 @@ import {
 } from '@/components/ui/chart-components';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PageHeader } from '@/components/ui/page-header';
-import { IllustrationChart, IllustrationWallet } from '@/components/illustrations';
+import { IllustrationChart, IllustrationWallet, IllustrationDocuments } from '@/components/illustrations';
+import { CATEGORIES } from '@/types';
 import {
   BarChart,
   Bar,
@@ -77,27 +82,32 @@ export default function BilansPage() {
   const [bilansAnnuels, setBilansAnnuels] = useState<BilanAnnuel[]>([]);
   const [bilansMensuels, setBilansMensuels] = useState<BilanMensuel[]>([]);
   const [transactions, setTransactions] = useState<TransactionWithRelations[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   // Fetch data and prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
 
     async function fetchData() {
-      const [annuelsRes, mensuelsRes, txRes] = await Promise.all([
+      const currentYear = new Date().getFullYear();
+
+      const [annuelsRes, mensuelsRes, txRes, yearsRes] = await Promise.all([
         getBilansAnnuels(),
-        getBilansMensuels(parseInt(selectedYear)),
-        getTransactions(),
+        getBilansMensuels(currentYear),
+        getBilanTransactions(), // Sans les transferts internes
+        getAvailableYears(),
       ]);
 
       if (annuelsRes.data) {
         setBilansAnnuels(annuelsRes.data);
-        // Set default year to most recent if available
-        if (annuelsRes.data.length > 0 && !selectedYear) {
-          setSelectedYear(annuelsRes.data[0].annee.toString());
-        }
       }
       if (mensuelsRes.data) setBilansMensuels(mensuelsRes.data);
       if (txRes.data) setTransactions(txRes.data);
+      if (yearsRes.data) {
+        setAvailableYears(yearsRes.data);
+        // S'assurer que l'année courante est sélectionnée
+        setSelectedYear(currentYear.toString());
+      }
       setIsLoading(false);
     }
     fetchData();
@@ -108,14 +118,14 @@ export default function BilansPage() {
     if (!isMounted) return;
 
     async function fetchMonthlyData() {
-      const mensuelsRes = await getBilansMensuels(parseInt(selectedYear));
+      const year = parseInt(selectedYear);
+
+      // Récupérer les données mensuelles (sera vide si pas de transactions pour cette année)
+      const mensuelsRes = await getBilansMensuels(year);
       if (mensuelsRes.data) setBilansMensuels(mensuelsRes.data);
     }
     fetchMonthlyData();
   }, [selectedYear, isMounted]);
-
-  // Compute available years from bilans
-  const annees = bilansAnnuels.map((b) => b.annee);
 
   if (isLoading) {
     return (
@@ -185,6 +195,12 @@ export default function BilansPage() {
     [] as { mois: string; cumulCredit: number; cumulDebit: number; cumulSolde: number }[]
   );
 
+  // Filtrer les transactions par année sélectionnée
+  const yearTransactions = transactions.filter((tx) => {
+    const txYear = new Date(tx.date).getFullYear();
+    return txYear === parseInt(selectedYear);
+  });
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Print Title - Only visible when printing */}
@@ -211,7 +227,7 @@ export default function BilansPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {annees.map((annee) => (
+                {availableYears.map((annee) => (
                   <SelectItem key={annee} value={annee.toString()}>
                     {annee}
                   </SelectItem>
@@ -249,17 +265,16 @@ export default function BilansPage() {
         />
 
         {/* Year Summary Cards */}
-        {currentBilan && (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-4">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mt-4">
           <Card className="card-hover bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium">Année</CardTitle>
               <Calendar className="h-4 w-4 text-amber-600" />
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-              <div className="text-xl sm:text-2xl font-bold text-amber-700">{currentBilan.annee}</div>
+              <div className="text-xl sm:text-2xl font-bold text-amber-700">{selectedYear}</div>
               <p className="text-xs text-muted-foreground">
-                {currentBilan.nb_transactions} transactions
+                {currentBilan?.nb_transactions ?? 0} transactions
               </p>
             </CardContent>
           </Card>
@@ -271,7 +286,7 @@ export default function BilansPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <div className={`text-xl sm:text-2xl font-bold ${TEXT_COLORS.credit}`}>
-                {formatCurrency(currentBilan.total_credit)}
+                {formatCurrency(currentBilan?.total_credit ?? 0)}
               </div>
             </CardContent>
           </Card>
@@ -283,7 +298,7 @@ export default function BilansPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <div className={`text-xl sm:text-2xl font-bold ${TEXT_COLORS.debit}`}>
-                {formatCurrency(currentBilan.total_debit)}
+                {formatCurrency(currentBilan?.total_debit ?? 0)}
               </div>
             </CardContent>
           </Card>
@@ -296,14 +311,25 @@ export default function BilansPage() {
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <div
                 className={`text-xl sm:text-2xl font-bold ${getSoldeColor(
-                  currentBilan.solde
+                  currentBilan?.solde ?? 0
                 )}`}
               >
-                {formatCurrency(currentBilan.solde)}
+                {formatCurrency(currentBilan?.solde ?? 0)}
               </div>
             </CardContent>
           </Card>
-          </div>
+        </div>
+
+        {/* Message si pas de données pour l'année */}
+        {!currentBilan && (
+          <Card className="mt-4 bg-gradient-to-br from-slate-50 to-gray-50 border-slate-200">
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">
+                Aucune transaction enregistrée pour {selectedYear}.
+                Les données apparaîtront automatiquement dès qu&apos;une transaction sera ajoutée.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -646,6 +672,160 @@ export default function BilansPage() {
             <div className="w-full sm:w-auto flex h-10 bg-muted rounded-md animate-pulse" />
           </div>
         )}
+      </div>
+
+      {/* Section Transactions du Bilan */}
+      <div className="print-section-large">
+        <SectionHeader
+          icon={<IllustrationDocuments size={60} />}
+          title={`Transactions ${selectedYear}`}
+          description="Liste des transactions comptables (hors transferts internes)"
+          className="print-section-header"
+        />
+
+        {/* Transactions Mobile Cards */}
+        <div className="block lg:hidden space-y-3 mt-4">
+          <p className="text-sm text-muted-foreground px-1">
+            {yearTransactions.length} transaction(s)
+          </p>
+          {yearTransactions.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-center text-muted-foreground">
+                  Aucune transaction pour {selectedYear}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            yearTransactions.map((tx) => (
+              <Card key={tx.id} className="bg-gradient-to-br from-amber-50/30 to-orange-50/30">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+                        {tx.artiste_nom && (
+                          <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
+                        )}
+                        {tx.projet_code && (
+                          <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
+                        )}
+                      </div>
+                      <p className="font-medium mt-1 text-sm">{tx.description}</p>
+                      {tx.categorie && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {getCategoryLabel(tx.categorie)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {tx.credit > 0 && (
+                        <span className="text-emerald-600 font-semibold">
+                          +{formatCurrency(tx.credit)}
+                        </span>
+                      )}
+                      {tx.debit > 0 && (
+                        <span className="text-rose-500 font-semibold">
+                          -{formatCurrency(tx.debit)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Transactions Table - Desktop */}
+        <Card className="hidden lg:block bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 mt-4 print-keep-together">
+          <CardHeader>
+            <CardTitle>Détail des transactions {selectedYear}</CardTitle>
+            <CardDescription>
+              {yearTransactions.length} transaction(s) • Transferts internes exclus
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {yearTransactions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                Aucune transaction pour {selectedYear}
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead>Artiste</TableHead>
+                    <TableHead>Projet</TableHead>
+                    <TableHead className="text-right">Crédit</TableHead>
+                    <TableHead className="text-right">Débit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {yearTransactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {formatDate(tx.date)}
+                      </TableCell>
+                      <TableCell>{tx.description}</TableCell>
+                      <TableCell>
+                        {tx.categorie ? (
+                          <span className="text-sm">{getCategoryLabel(tx.categorie)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tx.artiste_nom ? (
+                          <Badge variant="outline">{tx.artiste_nom}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tx.projet_code ? (
+                          <Badge variant="secondary">{tx.projet_code}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {tx.credit > 0 ? (
+                          <span className="text-emerald-600 font-medium">
+                            +{formatCurrency(tx.credit)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {tx.debit > 0 ? (
+                          <span className="text-rose-500 font-medium">
+                            -{formatCurrency(tx.debit)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {/* Ligne de total */}
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell colSpan={5}>TOTAL</TableCell>
+                    <TableCell className="text-right text-emerald-600">
+                      +{formatCurrency(yearTransactions.reduce((sum, tx) => sum + tx.credit, 0))}
+                    </TableCell>
+                    <TableCell className="text-right text-rose-500">
+                      -{formatCurrency(yearTransactions.reduce((sum, tx) => sum + tx.debit, 0))}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
