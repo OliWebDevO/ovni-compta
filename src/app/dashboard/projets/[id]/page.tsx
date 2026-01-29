@@ -558,14 +558,26 @@ export default function ProjetDetailPage({
                       )}
                     </div>
                     {canEdit && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-rose-500"
-                        onClick={() => handleDeleteTransaction(tx.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-purple-600"
+                          asChild
+                        >
+                          <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/projets/${id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                          onClick={() => handleDeleteTransaction(tx.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -597,7 +609,7 @@ export default function ProjetDetailPage({
                   <TableHead>Artiste</TableHead>
                   <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="text-right">Débit</TableHead>
-                  {canEdit && <TableHead className="w-[50px]"></TableHead>}
+                  {canEdit && <TableHead className="w-[100px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -634,14 +646,26 @@ export default function ProjetDetailPage({
                     </TableCell>
                     {canEdit && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-rose-500"
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-purple-600"
+                            asChild
+                          >
+                            <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/projets/${id}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                            onClick={() => handleDeleteTransaction(tx.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

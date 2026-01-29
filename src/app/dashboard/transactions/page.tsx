@@ -341,7 +341,7 @@ export default function TransactionsPage() {
                               className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
                               asChild
                             >
-                              <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                              <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/transactions`}>
                                 <Pencil className="h-4 w-4" />
                               </Link>
                             </Button>
@@ -462,7 +462,7 @@ export default function TransactionsPage() {
                                 className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
                                 asChild
                               >
-                                <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                                <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/transactions`}>
                                   <Pencil className="h-4 w-4" />
                                 </Link>
                               </Button>

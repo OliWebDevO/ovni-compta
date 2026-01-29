@@ -195,11 +195,12 @@ export default function NewTransactionPage() {
 
               <div className="grid gap-2">
                 <Label htmlFor="artiste">Artiste (optionnel)</Label>
-                <Select value={formArtisteId} onValueChange={setFormArtisteId}>
+                <Select value={formArtisteId || '__none__'} onValueChange={(val) => setFormArtisteId(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un artiste" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
                     {artistes.map((artiste) => (
                       <SelectItem key={artiste.id} value={artiste.id}>
                         {artiste.nom}
@@ -211,11 +212,12 @@ export default function NewTransactionPage() {
 
               <div className="grid gap-2">
                 <Label htmlFor="projet">Projet (optionnel)</Label>
-                <Select value={formProjetId} onValueChange={setFormProjetId}>
+                <Select value={formProjetId || '__none__'} onValueChange={(val) => setFormProjetId(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un projet" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
                     {projets.map((projet) => (
                       <SelectItem key={projet.id} value={projet.id}>
                         {projet.nom} ({projet.code})
@@ -227,11 +229,12 @@ export default function NewTransactionPage() {
 
               <div className="grid gap-2">
                 <Label htmlFor="categorie">Catégorie</Label>
-                <Select value={formCategorie} onValueChange={setFormCategorie}>
+                <Select value={formCategorie || '__none__'} onValueChange={(val) => setFormCategorie(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucune</SelectItem>
                     {CATEGORIES.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
                         {cat.label}

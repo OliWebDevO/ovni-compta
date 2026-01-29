@@ -611,7 +611,7 @@ export default function ArtisteDetailPage({
                           className="h-8 w-8 text-muted-foreground hover:text-blue-500"
                           asChild
                         >
-                          <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                          <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/artistes/${id}`}>
                             <Pencil className="h-4 w-4" />
                           </Link>
                         </Button>
@@ -699,7 +699,7 @@ export default function ArtisteDetailPage({
                             className="h-8 w-8 text-muted-foreground hover:text-blue-500"
                             asChild
                           >
-                            <Link href={`/dashboard/transactions/${tx.id}/edit`}>
+                            <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/artistes/${id}`}>
                               <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Card,
@@ -36,6 +36,8 @@ export default function EditTransactionPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard/transactions';
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
@@ -122,7 +124,7 @@ export default function EditTransactionPage({
     }
 
     toast.success('Transaction modifiee avec succes');
-    router.push('/dashboard/transactions');
+    router.push(returnUrl);
   };
 
   if (isLoading) {
@@ -147,7 +149,7 @@ export default function EditTransactionPage({
           asChild
           className="w-full sm:w-auto bg-white/20 border-white/30 text-white hover:bg-white/30"
         >
-          <Link href="/dashboard/transactions">
+          <Link href={returnUrl}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </Link>
@@ -216,11 +218,12 @@ export default function EditTransactionPage({
 
               <div className="grid gap-2">
                 <Label htmlFor="artiste">Artiste (optionnel)</Label>
-                <Select value={formArtisteId} onValueChange={setFormArtisteId}>
+                <Select value={formArtisteId || '__none__'} onValueChange={(val) => setFormArtisteId(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selectionner un artiste" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
                     {artistes.map((artiste) => (
                       <SelectItem key={artiste.id} value={artiste.id}>
                         {artiste.nom}
@@ -232,11 +235,12 @@ export default function EditTransactionPage({
 
               <div className="grid gap-2">
                 <Label htmlFor="projet">Projet (optionnel)</Label>
-                <Select value={formProjetId} onValueChange={setFormProjetId}>
+                <Select value={formProjetId || '__none__'} onValueChange={(val) => setFormProjetId(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selectionner un projet" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
                     {projets.map((projet) => (
                       <SelectItem key={projet.id} value={projet.id}>
                         {projet.nom} ({projet.code})
@@ -248,11 +252,12 @@ export default function EditTransactionPage({
 
               <div className="grid gap-2">
                 <Label htmlFor="categorie">Categorie</Label>
-                <Select value={formCategorie} onValueChange={setFormCategorie}>
+                <Select value={formCategorie || '__none__'} onValueChange={(val) => setFormCategorie(val === '__none__' ? '' : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selectionner une categorie" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Aucune</SelectItem>
                     {CATEGORIES.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
                         {cat.label}
@@ -267,7 +272,7 @@ export default function EditTransactionPage({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push('/dashboard/transactions')}
+                onClick={() => router.push(returnUrl)}
                 className="w-full sm:w-auto"
                 disabled={isSubmitting}
               >
