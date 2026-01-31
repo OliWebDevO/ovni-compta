@@ -8,14 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TransactionList } from '@/components/transactions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -37,7 +30,6 @@ import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
 import type { CurrentUser } from '@/lib/actions/profile';
 import {
   formatCurrency,
-  formatDate,
   formatDateLong,
   getInitials,
   getSoldeColor,
@@ -58,12 +50,15 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
 } from 'recharts';
 import { EmptyState } from '@/components/ui/empty-state';
+import { usePermissions } from '@/hooks/usePermissions';
+import { deleteTransaction } from '@/lib/actions/transactions';
+import { toast } from 'sonner';
 
 interface ArtisteTransaction {
   id: string;
@@ -81,6 +76,19 @@ export default function MonComptePage() {
   const [artiste, setArtiste] = useState<ArtisteWithStats | null>(null);
   const [mesTransactions, setMesTransactions] = useState<ArtisteTransaction[]>([]);
   const [mesProjets, setMesProjets] = useState<ProjetWithStats[]>([]);
+  const { canEdit } = usePermissions();
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) return;
+
+    const result = await deleteTransaction(id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Transaction supprimée');
+      setMesTransactions((prev) => prev.filter((tx) => tx.id !== id));
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -314,7 +322,7 @@ export default function MonComptePage() {
                 <CartesianGrid {...modernGridConfig} />
                 <XAxis dataKey="mois" {...modernAxisConfig} />
                 <YAxis {...modernAxisConfig} />
-                <Tooltip content={<ModernTooltip />} />
+                <RechartsTooltip content={<ModernTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="credit"
@@ -353,7 +361,7 @@ export default function MonComptePage() {
                 <CartesianGrid {...modernGridConfig} horizontal={true} vertical={false} />
                 <XAxis type="number" {...modernAxisConfig} />
                 <YAxis dataKey="cat" type="category" width={70} {...modernAxisConfig} />
-                <Tooltip content={<ModernTooltip />} />
+                <RechartsTooltip content={<ModernTooltip />} />
                 <Bar
                   dataKey="montant"
                   fill="url(#primaryBarGradient)"
@@ -429,117 +437,24 @@ export default function MonComptePage() {
         description="Historique de vos mouvements financiers"
       />
 
-      {/* Mes Transactions - Mobile Cards */}
-      <div className="block lg:hidden space-y-3">
+      {/* Mes Transactions */}
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           {mesTransactions.length} transaction(s)
         </p>
-        {mesTransactions.length === 0 ? (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                Aucune transaction enregistrée
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          mesTransactions.map((tx) => (
-            <Card key={tx.id} className="bg-gradient-to-br from-cyan-50/50 to-blue-50/50 border-cyan-100/50">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.projet_code && (
-                        <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
-                      )}
-                      {tx.categorie && (
-                        <Badge variant="outline" className="text-xs">{tx.categorie}</Badge>
-                      )}
-                    </div>
-                    <p className="font-medium mt-1 text-sm">{tx.description}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    {tx.credit > 0 ? (
-                      <span className="text-emerald-600 font-semibold">
-                        +{formatCurrency(tx.credit)}
-                      </span>
-                    ) : (
-                      <span className="text-rose-500 font-semibold">
-                        -{formatCurrency(tx.debit)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        <TransactionList
+          transactions={mesTransactions}
+          showProjet
+          showCategorie
+          showActions
+          canEdit={canEdit}
+          returnUrl="/dashboard/mon-compte"
+          onDelete={handleDelete}
+          emptyMessage="Aucune transaction enregistrée"
+          mobileCardClassName="bg-gradient-to-br from-cyan-50/50 to-blue-50/50 border-cyan-100/50"
+          desktopTableClassName="bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border-blue-100/50"
+        />
       </div>
-
-      {/* Mes Transactions - Desktop Table */}
-      <Card className="hidden lg:block bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border-blue-100/50">
-        <CardHeader>
-          <CardTitle>Mes Transactions</CardTitle>
-          <CardDescription>
-            Historique de vos mouvements financiers
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {mesTransactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Aucune transaction enregistrée
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Projet</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mesTransactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell className="font-medium">
-                      {formatDate(tx.date)}
-                    </TableCell>
-                    <TableCell>{tx.description}</TableCell>
-                    <TableCell>
-                      {tx.projet_code ? (
-                        <Badge variant="secondary">{tx.projet_code}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {tx.categorie ? (
-                        <Badge variant="outline">{tx.categorie}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {tx.credit > 0 ? (
-                        <span className="text-emerald-600 font-medium">
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      ) : (
-                        <span className="text-rose-500 font-medium">
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Pied de page informatif */}
       <Card className="bg-gradient-to-br from-cyan-50/50 to-blue-50/50 border-cyan-100">

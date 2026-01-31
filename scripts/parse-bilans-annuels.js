@@ -1,6 +1,9 @@
 /**
- * Script pour parser les bilans annuels (2021-2026) depuis les exports HTML de Google Sheets
+ * Script pour parser le bilan 2026 depuis les exports HTML de Google Sheets
  * et générer un fichier SQL de seed propre pour Supabase
+ *
+ * NOTE: Suite aux problèmes de cohérence des données historiques (2021-2025),
+ * ce script ne traite désormais QUE l'année 2026.
  *
  * Usage: node scripts/parse-bilans-annuels.js
  */
@@ -10,7 +13,7 @@ const path = require('path');
 
 // Chemin vers le dossier avec les exports HTML
 const SHEETS_FOLDER = path.join(__dirname, '../../bilan compta O.V.N.I ');
-const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20250129000000_seed_transactions_v2.sql');
+const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20260131000001_seed_transactions_2026_v2.sql');
 
 // =============================================
 // Configuration des mappings
@@ -506,7 +509,7 @@ function parse2024(filePath, year) {
 // =============================================
 
 function main() {
-  console.log('🔍 Parsing des bilans annuels (2021-2026)...\n');
+  console.log('🔍 Parsing du bilan 2026 uniquement...\n');
 
   if (!fs.existsSync(SHEETS_FOLDER)) {
     console.error(`❌ Dossier non trouvé: ${SHEETS_FOLDER}`);
@@ -515,13 +518,8 @@ function main() {
 
   let allTransactions = [];
 
-  // Parser chaque année
+  // Parser uniquement 2026 (les données historiques ne sont plus importées)
   const years = [
-    { file: '2021.html', year: 2021, parser: parse2021 },
-    { file: '2022.html', year: 2022, parser: parse2022 },
-    { file: '2023.html', year: 2023, parser: parse2023 },
-    { file: '2024.html', year: 2024, parser: parse2024 },
-    { file: '2025.html', year: 2025, parser: parse2025_2026 },
     { file: '2026.html', year: 2026, parser: parse2025_2026 },
   ];
 
@@ -586,10 +584,12 @@ function main() {
 
   // Générer le SQL
   let sql = `-- =============================================
--- O.V.N.I Compta - Import des transactions V2
--- Généré depuis les bilans annuels (2021-2026)
+-- O.V.N.I Compta - Import des transactions 2026 UNIQUEMENT
 -- ${new Date().toISOString()}
 -- =============================================
+
+-- NOTE: Les données historiques (2021-2025) ne sont plus importées
+-- car elles n'étaient pas cohérentes avec les Google Sheets originaux.
 
 -- ATTENTION: Ce script REMPLACE toutes les transactions existantes
 -- Exécuter d'abord: DELETE FROM transactions;

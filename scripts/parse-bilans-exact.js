@@ -1,12 +1,10 @@
 /**
  * Script pour parser les bilans annuels EXACTEMENT comme dans les Google Sheets
  *
+ * NOTE: Suite aux problèmes de cohérence des données historiques,
+ * ce script ne traite désormais QUE l'année 2026.
+ *
  * Totaux attendus (vérifiés depuis les fichiers):
- * - 2021: Crédit ?, Débit ?, Clôture 7496.38€
- * - 2022: Ouverture 7496.38€, Clôture 12918.80€
- * - 2023: Crédit 34120.91€, Débit 20568.55€, Clôture 26471.16€
- * - 2024: Crédit 51704.93€, Débit 28262.45€, Clôture 49913.64€
- * - 2025: Crédit 61291.85€, Débit 56751.86€, Clôture 54453.63€
  * - 2026: Crédit 2249.90€, Débit 5325.89€, Clôture 51377.64€
  */
 
@@ -14,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SHEETS_FOLDER = path.join(__dirname, '../../bilan compta O.V.N.I ');
-const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20250129000001_seed_transactions_exact.sql');
+const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20260131000000_seed_transactions_2026.sql');
 
 // Artistes triés par longueur (plus long en premier pour éviter Jul/Juliette)
 const ARTISTES = ['Juliette', 'Geoffrey', 'Camille', 'Greta', 'Maïa', 'Emma', 'Iris', 'Léa', 'Lou', 'Jul'];
@@ -297,25 +295,17 @@ function parse2021_2022(filePath, year) {
 // ============================================
 
 function main() {
-  console.log('🔍 Parsing EXACT des bilans annuels...\n');
+  console.log('🔍 Parsing EXACT du bilan 2026 uniquement...\n');
 
-  // Totaux attendus pour vérification
+  // Totaux attendus pour vérification (2026 uniquement)
   const expected = {
-    2023: { credit: 34120.91, debit: 20568.55 },
-    2024: { credit: 51704.93, debit: 28262.45 },
-    2025: { credit: 61291.85, debit: 56751.86 },
     2026: { credit: 2249.90, debit: 5325.89 }
   };
 
   const allTransactions = [];
 
-  // Parser chaque année
+  // Parser uniquement 2026 (les données historiques ne sont plus importées)
   const parsers = [
-    { year: 2021, parser: () => parse2021_2022(path.join(SHEETS_FOLDER, '2021.html'), 2021) },
-    { year: 2022, parser: () => parse2021_2022(path.join(SHEETS_FOLDER, '2022.html'), 2022) },
-    { year: 2023, parser: () => parse2023_2024(path.join(SHEETS_FOLDER, '2023.html'), 2023, 0) },
-    { year: 2024, parser: () => parse2023_2024(path.join(SHEETS_FOLDER, '2024.html'), 2024, 2) },
-    { year: 2025, parser: () => parse2025_2026(path.join(SHEETS_FOLDER, '2025.html'), 2025) },
     { year: 2026, parser: () => parse2025_2026(path.join(SHEETS_FOLDER, '2026.html'), 2026) },
   ];
 
@@ -361,11 +351,15 @@ function main() {
 
   // Générer SQL
   let sql = `-- =============================================
--- O.V.N.I Compta - Import EXACT des transactions
+-- O.V.N.I Compta - Import des transactions 2026 UNIQUEMENT
 -- Généré le ${new Date().toISOString()}
 -- =============================================
 
--- IMPORTANT: Exécuter d'abord pour nettoyer:
+-- NOTE: Les données historiques (2021-2025) ne sont plus importées
+-- car elles n'étaient pas cohérentes avec les Google Sheets originaux.
+-- Seules les données de 2026 sont désormais gérées par l'application.
+
+-- IMPORTANT: Exécuter d'abord pour nettoyer les anciennes transactions:
 -- DELETE FROM transferts;
 -- DELETE FROM transactions;
 

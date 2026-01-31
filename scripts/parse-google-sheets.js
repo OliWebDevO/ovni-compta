@@ -2,6 +2,9 @@
  * Script pour parser les exports HTML de Google Sheets
  * et générer un fichier SQL d'insertion pour Supabase
  *
+ * NOTE: Suite aux problèmes de cohérence des données historiques (2021-2025),
+ * ce script ne garde désormais QUE les transactions de l'année 2026.
+ *
  * Usage: node scripts/parse-google-sheets.js
  */
 
@@ -10,7 +13,10 @@ const path = require('path');
 
 // Chemin vers le dossier avec les exports HTML
 const SHEETS_FOLDER = path.join(__dirname, '../../bilan compta O.V.N.I ');
-const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20250128000005_seed_transactions.sql');
+const OUTPUT_FILE = path.join(__dirname, '../supabase/migrations/20260131000002_seed_transactions_artistes_2026.sql');
+
+// Année cible - seules les transactions de cette année seront importées
+const TARGET_YEAR = 2026;
 
 // Fonction pour normaliser les noms de fichiers (gestion Unicode)
 // Normalise en NFC ET supprime les accents pour la comparaison
@@ -270,7 +276,7 @@ function detectCategorie(description) {
 
 // Fonction principale
 function main() {
-  console.log('🔍 Parsing des fichiers Google Sheets...\n');
+  console.log(`🔍 Parsing des fichiers Google Sheets (année ${TARGET_YEAR} uniquement)...\n`);
 
   // Vérifier que le dossier existe
   if (!fs.existsSync(SHEETS_FOLDER)) {
@@ -316,11 +322,15 @@ function main() {
     }
   }
 
-  console.log(`\n📊 Total: ${allTransactions.length} transactions\n`);
+  console.log(`\n📊 Total brut: ${allTransactions.length} transactions\n`);
+
+  // Filtrer pour ne garder QUE les transactions de 2026
+  const transactions2026 = allTransactions.filter(t => t.date.startsWith(String(TARGET_YEAR)));
+  console.log(`📊 Transactions ${TARGET_YEAR}: ${transactions2026.length} transactions\n`);
 
   // Dédupliquer les transactions (même date, même montant, même description)
   const seen = new Set();
-  const uniqueTransactions = allTransactions.filter(t => {
+  const uniqueTransactions = transactions2026.filter(t => {
     const key = `${t.date}-${t.credit}-${t.debit}-${t.description.substring(0, 50)}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -334,10 +344,13 @@ function main() {
 
   // Générer le SQL
   let sql = `-- =============================================
--- O.V.N.I Compta - Import des transactions
--- Généré automatiquement depuis Google Sheets
+-- O.V.N.I Compta - Import des transactions ${TARGET_YEAR} UNIQUEMENT
+-- Généré automatiquement depuis les fiches artistes/projets
 -- ${new Date().toISOString()}
 -- =============================================
+
+-- NOTE: Les données historiques (2021-2025) ne sont plus importées
+-- car elles n'étaient pas cohérentes avec les Google Sheets originaux.
 
 -- Total: ${uniqueTransactions.length} transactions
 

@@ -11,14 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { TransactionList } from '@/components/transactions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -516,165 +509,23 @@ export default function ProjetDetailPage({
         </Card>
       </div>
 
-      {/* Transactions Mobile Cards */}
-      <div className="block lg:hidden space-y-3">
+      {/* Transactions du projet */}
+      <div className="space-y-3">
         <h2 className="text-lg font-semibold">Transactions du projet</h2>
         <p className="text-sm text-muted-foreground">
           {projetTransactions.length} transaction(s)
         </p>
-        {projetTransactions.length === 0 ? (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                Aucune transaction pour ce projet
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          projetTransactions.map((tx) => (
-            <Card key={tx.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.artiste_nom && (
-                        <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
-                      )}
-                    </div>
-                    <p className="font-medium mt-1 text-sm">{tx.description}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="text-right">
-                      {tx.credit > 0 && (
-                        <span className="text-emerald-600 font-semibold">
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      )}
-                      {tx.debit > 0 && (
-                        <span className="text-rose-500 font-semibold">
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      )}
-                    </div>
-                    {canEdit && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-purple-600"
-                          asChild
-                        >
-                          <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/projets/${id}`}>
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-rose-500"
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        <TransactionList
+          transactions={projetTransactions}
+          showArtiste
+          showCategorie
+          showActions
+          canEdit={canEdit}
+          returnUrl={`/dashboard/projets/${id}`}
+          onDelete={handleDeleteTransaction}
+          emptyMessage="Aucune transaction pour ce projet"
+        />
       </div>
-
-      {/* Transactions Table - Desktop */}
-      <Card className="hidden lg:block bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
-        <CardHeader>
-          <CardTitle>Transactions du projet</CardTitle>
-          <CardDescription>
-            Historique des entrées et sorties pour ce projet
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {projetTransactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Aucune transaction pour ce projet
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Artiste</TableHead>
-                  <TableHead className="text-right">Crédit</TableHead>
-                  <TableHead className="text-right">Débit</TableHead>
-                  {canEdit && <TableHead className="w-[100px]"></TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projetTransactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell className="font-medium">
-                      {formatDate(tx.date)}
-                    </TableCell>
-                    <TableCell>{tx.description}</TableCell>
-                    <TableCell>
-                      {tx.artiste_nom ? (
-                        <Badge variant="outline">{tx.artiste_nom}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {tx.credit > 0 ? (
-                        <span className="text-emerald-600 font-medium">
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {tx.debit > 0 ? (
-                        <span className="text-rose-500 font-medium">
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-purple-600"
-                            asChild
-                          >
-                            <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/projets/${id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-rose-500"
-                            onClick={() => handleDeleteTransaction(tx.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -48,6 +48,7 @@ import { toast } from 'sonner';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
 import type { ArtisteWithStats, ProjetWithStats, TransactionWithRelations } from '@/types/database';
+import { CATEGORIES } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { exportTransactionsToCSV } from '@/lib/export';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -57,6 +58,12 @@ import { IllustrationWallet, IllustrationDocuments } from '@/components/illustra
 import { usePermissions } from '@/hooks/usePermissions';
 
 const ITEMS_PER_PAGE = 30;
+
+// Helper pour obtenir le label de catégorie
+const getCategoryLabel = (value: string): string => {
+  const cat = CATEGORIES.find((c) => c.value === value);
+  return cat?.label || value;
+};
 
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -305,66 +312,102 @@ export default function TransactionsPage() {
           {displayedTransactions.map((tx) => (
             <Card key={tx.id} className="bg-gradient-to-br from-teal-50/50 to-cyan-50/50 border-teal-100/50">
               <CardContent className="p-4">
+                {/* Ligne 1: Date+Badges | Montant */}
                 <div className="flex items-start justify-between gap-3">
+                  {/* Date et Badges */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                      {tx.artiste_nom && (
-                        <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
+                    <span className="text-xs text-muted-foreground block">
+                      {formatDate(tx.date)}
+                    </span>
+                    <div className="flex flex-wrap gap-1 my-3">
+                      {tx.artiste_nom && tx.artiste_id && (
+                        <Link href={`/dashboard/artistes/${tx.artiste_id}`}>
+                          <Badge
+                            variant="outline"
+                            className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                            style={tx.artiste_couleur ? {
+                              borderColor: tx.artiste_couleur,
+                              color: tx.artiste_couleur
+                            } : undefined}
+                          >
+                            {tx.artiste_nom}
+                          </Badge>
+                        </Link>
                       )}
-                      {tx.projet_code && (
-                        <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
+                      {tx.projet_code && tx.projet_id && (
+                        <Link href={`/dashboard/projets/${tx.projet_id}`}>
+                          <Badge variant="secondary" className="text-xs cursor-pointer hover:opacity-80 transition-opacity">
+                            {tx.projet_code}
+                          </Badge>
+                        </Link>
+                      )}
+                      {tx.categorie && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          {getCategoryLabel(tx.categorie)}
+                        </Badge>
                       )}
                     </div>
-                    <p className="font-medium mt-1 text-sm">{tx.description}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right shrink-0 mr-2">
-                      {tx.credit > 0 && (
-                        <span className="text-emerald-600 font-semibold">
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      )}
-                      {tx.debit > 0 && (
-                        <span className="text-rose-500 font-semibold">
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      )}
-                    </div>
-                    {canEdit && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
-                              asChild
-                            >
-                              <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/transactions`}>
-                                <Pencil className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Modifier</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                              onClick={() => handleDelete(tx.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Supprimer</TooltipContent>
-                        </Tooltip>
-                      </>
+
+                  {/* Montant */}
+                  <div className="text-right shrink-0">
+                    {tx.credit > 0 ? (
+                      <span className="text-emerald-600 font-semibold text-base">
+                        +{formatCurrency(tx.credit)}
+                      </span>
+                    ) : (
+                      <span className="text-rose-500 font-semibold text-base">
+                        -{formatCurrency(tx.debit)}
+                      </span>
                     )}
                   </div>
                 </div>
+
+                {/* Ligne 2: Description + Actions en bas à droite */}
+                {(tx.description || canEdit) && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex items-end justify-between gap-3">
+                      {/* Description */}
+                      <p className="text-sm text-foreground flex-1">
+                        {tx.description || <span className="text-muted-foreground">-</span>}
+                      </p>
+
+                      {/* Actions */}
+                      {canEdit && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50"
+                                asChild
+                              >
+                                <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/transactions`}>
+                                  <Pencil className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Modifier</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-slate-600 hover:text-destructive hover:border-destructive/50 hover:bg-destructive/10"
+                                onClick={() => handleDelete(tx.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Supprimer</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -404,6 +447,7 @@ export default function TransactionsPage() {
                   <TableHead>Description</TableHead>
                   <TableHead>Artiste</TableHead>
                   <TableHead>Projet</TableHead>
+                  <TableHead>Catégorie</TableHead>
                   <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="text-right">Débit</TableHead>
                   {canEdit && <TableHead className="w-[100px] text-center">Actions</TableHead>}
@@ -420,15 +464,37 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell>{tx.description}</TableCell>
                     <TableCell>
-                      {tx.artiste_nom ? (
-                        <Badge variant="outline">{tx.artiste_nom}</Badge>
+                      {tx.artiste_nom && tx.artiste_id ? (
+                        <Link href={`/dashboard/artistes/${tx.artiste_id}`}>
+                          <Badge
+                            variant="outline"
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            style={tx.artiste_couleur ? {
+                              borderColor: tx.artiste_couleur,
+                              color: tx.artiste_couleur
+                            } : undefined}
+                          >
+                            {tx.artiste_nom}
+                          </Badge>
+                        </Link>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {tx.projet_code ? (
-                        <Badge variant="secondary">{tx.projet_code}</Badge>
+                      {tx.projet_code && tx.projet_id ? (
+                        <Link href={`/dashboard/projets/${tx.projet_id}`}>
+                          <Badge variant="secondary" className="cursor-pointer hover:opacity-80 transition-opacity">
+                            {tx.projet_code}
+                          </Badge>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {tx.categorie ? (
+                        <Badge variant="outline" className="text-muted-foreground">{getCategoryLabel(tx.categorie)}</Badge>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -452,14 +518,14 @@ export default function TransactionsPage() {
                       )}
                     </TableCell>
                     {canEdit && (
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-slate-500 hover:text-teal-600 hover:bg-teal-50"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50"
                                 asChild
                               >
                                 <Link href={`/dashboard/transactions/${tx.id}/edit?returnUrl=/dashboard/transactions`}>
@@ -472,9 +538,9 @@ export default function TransactionsPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-slate-600 hover:text-destructive hover:border-destructive/50 hover:bg-destructive/10"
                                 onClick={() => handleDelete(tx.id)}
                               >
                                 <Trash2 className="h-4 w-4" />

@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { TransactionList } from '@/components/transactions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,7 +38,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getBilansAnnuels, getBilansMensuels, getBilanTransactions, getAvailableYears } from '@/lib/actions/bilans';
+import { deleteTransaction } from '@/lib/actions/transactions';
 import type { BilanAnnuel, BilanMensuel, TransactionWithRelations } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
 import { formatCurrency, formatDate, getSoldeColor, MOIS } from '@/lib/utils';
 
 const getCategoryLabel = (value: string): string => {
@@ -83,6 +86,7 @@ export default function BilansPage() {
   const [bilansMensuels, setBilansMensuels] = useState<BilanMensuel[]>([]);
   const [transactions, setTransactions] = useState<TransactionWithRelations[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const { canEdit } = usePermissions();
 
   // Fetch data and prevent hydration mismatch
   useEffect(() => {
@@ -126,6 +130,18 @@ export default function BilansPage() {
     }
     fetchMonthlyData();
   }, [selectedYear, isMounted]);
+
+  // Gestion de la suppression de transaction
+  const handleDeleteTransaction = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) return;
+
+    const result = await deleteTransaction(id);
+    if (result.success) {
+      setTransactions(transactions.filter(tx => tx.id !== id));
+    } else {
+      alert(result.error || 'Erreur lors de la suppression');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -683,149 +699,25 @@ export default function BilansPage() {
           className="print-section-header"
         />
 
-        {/* Transactions Mobile Cards */}
-        <div className="block lg:hidden space-y-3 mt-4">
+        {/* Transactions */}
+        <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground px-1">
-            {yearTransactions.length} transaction(s)
+            {yearTransactions.length} transaction(s) • Transferts internes exclus
           </p>
-          {yearTransactions.length === 0 ? (
-            <Card>
-              <CardContent className="py-8">
-                <p className="text-center text-muted-foreground">
-                  Aucune transaction pour {selectedYear}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            yearTransactions.map((tx) => (
-              <Card key={tx.id} className="bg-gradient-to-br from-amber-50/30 to-orange-50/30">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
-                        {tx.artiste_nom && (
-                          <Badge variant="outline" className="text-xs">{tx.artiste_nom}</Badge>
-                        )}
-                        {tx.projet_code && (
-                          <Badge variant="secondary" className="text-xs">{tx.projet_code}</Badge>
-                        )}
-                      </div>
-                      <p className="font-medium mt-1 text-sm">{tx.description}</p>
-                      {tx.categorie && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {getCategoryLabel(tx.categorie)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      {tx.credit > 0 && (
-                        <span className="text-emerald-600 font-semibold">
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      )}
-                      {tx.debit > 0 && (
-                        <span className="text-rose-500 font-semibold">
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+          <TransactionList
+            transactions={yearTransactions}
+            showArtiste
+            showProjet
+            showCategorie
+            showActions
+            canEdit={canEdit}
+            returnUrl="/dashboard/bilans"
+            onDelete={handleDeleteTransaction}
+            emptyMessage={`Aucune transaction pour ${selectedYear}`}
+            mobileCardClassName="bg-gradient-to-br from-amber-50/30 to-orange-50/30"
+            desktopTableClassName="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 print-keep-together"
+          />
         </div>
-
-        {/* Transactions Table - Desktop */}
-        <Card className="hidden lg:block bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 mt-4 print-keep-together">
-          <CardHeader>
-            <CardTitle>Détail des transactions {selectedYear}</CardTitle>
-            <CardDescription>
-              {yearTransactions.length} transaction(s) • Transferts internes exclus
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {yearTransactions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Aucune transaction pour {selectedYear}
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Catégorie</TableHead>
-                    <TableHead>Artiste</TableHead>
-                    <TableHead>Projet</TableHead>
-                    <TableHead className="text-right">Crédit</TableHead>
-                    <TableHead className="text-right">Débit</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {yearTransactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {formatDate(tx.date)}
-                      </TableCell>
-                      <TableCell>{tx.description}</TableCell>
-                      <TableCell>
-                        {tx.categorie ? (
-                          <span className="text-sm">{getCategoryLabel(tx.categorie)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tx.artiste_nom ? (
-                          <Badge variant="outline">{tx.artiste_nom}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tx.projet_code ? (
-                          <Badge variant="secondary">{tx.projet_code}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {tx.credit > 0 ? (
-                          <span className="text-emerald-600 font-medium">
-                            +{formatCurrency(tx.credit)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {tx.debit > 0 ? (
-                          <span className="text-rose-500 font-medium">
-                            -{formatCurrency(tx.debit)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Ligne de total */}
-                  <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={5}>TOTAL</TableCell>
-                    <TableCell className="text-right text-emerald-600">
-                      +{formatCurrency(yearTransactions.reduce((sum, tx) => sum + tx.credit, 0))}
-                    </TableCell>
-                    <TableCell className="text-right text-rose-500">
-                      -{formatCurrency(yearTransactions.reduce((sum, tx) => sum + tx.debit, 0))}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
