@@ -28,6 +28,8 @@ import {
   LogOut,
   ChevronDown,
   BookOpen,
+  FileText,
+  Landmark,
 } from 'lucide-react';
 import { cn, getInitials, getRoleColor } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -93,6 +95,14 @@ const breadcrumbMap: Record<string, BreadcrumbConfig> = {
     bgColor: 'bg-purple-100',
     borderColor: 'border-purple-300',
   },
+  'caisse-ovni': {
+    label: 'Caisse OVNI',
+    icon: Landmark,
+    gradient: 'from-slate-600 to-zinc-700',
+    textColor: 'text-slate-700',
+    bgColor: 'bg-slate-100',
+    borderColor: 'border-slate-300',
+  },
   bilans: {
     label: 'Bilans',
     icon: BarChart3,
@@ -124,6 +134,14 @@ const breadcrumbMap: Record<string, BreadcrumbConfig> = {
     textColor: 'text-rose-700',
     bgColor: 'bg-rose-100',
     borderColor: 'border-rose-300',
+  },
+  factures: {
+    label: 'Factures',
+    icon: FileText,
+    gradient: 'from-teal-500 to-cyan-600',
+    textColor: 'text-teal-700',
+    bgColor: 'bg-teal-100',
+    borderColor: 'border-teal-300',
   },
   edit: {
     label: 'Modifier',

@@ -100,8 +100,8 @@ interface ExportableTransfert {
   date: string;
   montant: number;
   description: string;
-  source_type: 'artiste' | 'projet';
-  destination_type: 'artiste' | 'projet';
+  source_type: 'artiste' | 'projet' | 'asbl';
+  destination_type: 'artiste' | 'projet' | 'asbl';
   // Propriétés imbriquées (Transfert)
   source_artiste?: { nom: string } | null;
   source_projet?: { nom: string; code: string } | null;
@@ -132,11 +132,13 @@ export function exportTransfertsToCSV(
 
   // Helper pour obtenir le label d'un compte (supporte les deux formats)
   const getCompteLabel = (
-    type: 'artiste' | 'projet',
+    type: 'artiste' | 'projet' | 'asbl',
     flatNom?: string,
     artiste?: { nom: string } | null,
     projet?: { nom: string; code?: string } | null
   ): string => {
+    // ASBL type
+    if (type === 'asbl') return 'Caisse OVNI';
     // Flat property first
     if (flatNom) return flatNom;
     // Then nested
@@ -145,14 +147,21 @@ export function exportTransfertsToCSV(
     return '-';
   };
 
+  // Helper pour obtenir le label du type
+  const getTypeLabel = (type: 'artiste' | 'projet' | 'asbl'): string => {
+    if (type === 'artiste') return 'Artiste';
+    if (type === 'projet') return 'Projet';
+    return 'ASBL';
+  };
+
   // CSV rows
   const rows = transferts.map((tf) => {
     return [
       formatDate(tf.date),
       `"${tf.description.replace(/"/g, '""')}"`, // Escape quotes
-      tf.source_type === 'artiste' ? 'Artiste' : 'Projet',
+      getTypeLabel(tf.source_type),
       getCompteLabel(tf.source_type, tf.source_nom, tf.source_artiste, tf.source_projet),
-      tf.destination_type === 'artiste' ? 'Artiste' : 'Projet',
+      getTypeLabel(tf.destination_type),
       getCompteLabel(tf.destination_type, tf.destination_nom, tf.destination_artiste, tf.destination_projet),
       tf.montant.toFixed(2),
     ];

@@ -333,81 +333,100 @@ export default function ProjetDetailPage({
         </Card>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-        {/* Info Card */}
-        <Card className="card-hover bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
-          <CardHeader>
-            <CardTitle>Informations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {projet.date_debut && (
+      {/* Info Card */}
+      <Card className="card-hover bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
+        <CardHeader>
+          <CardTitle>Informations</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {projet.date_debut && (
+            <div className="flex items-center gap-3">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Période</p>
+                <p>
+                  {formatDateLong(projet.date_debut)}
+                  {projet.date_fin && ` - ${formatDateLong(projet.date_fin)}`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {artiste && (
+            <>
+              <Separator />
               <div className="flex items-center gap-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <User className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Période</p>
-                  <p>
-                    {formatDateLong(projet.date_debut)}
-                    {projet.date_fin && ` - ${formatDateLong(projet.date_fin)}`}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Artiste associé</p>
+                  <Link
+                    href={`/dashboard/artistes/${artiste.artiste_id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {artiste.artiste_nom}
+                  </Link>
                 </div>
               </div>
-            )}
+            </>
+          )}
 
-            {artiste && (
-              <>
-                <Separator />
+          {projet.budget && (
+            <>
+              <Separator />
+              <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <Euro className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Artiste associé</p>
-                    <Link
-                      href={`/dashboard/artistes/${artiste.artiste_id}`}
-                      className="text-primary hover:underline"
-                    >
-                      {artiste.artiste_nom}
-                    </Link>
+                    <p className="text-sm text-muted-foreground">Budget alloué</p>
+                    <p className="font-semibold">
+                      {formatCurrency(projet.budget)}
+                    </p>
                   </div>
                 </div>
-              </>
-            )}
-
-            {projet.budget && (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Euro className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Budget alloué</p>
-                      <p className="font-semibold">
-                        {formatCurrency(projet.budget)}
-                      </p>
-                    </div>
-                  </div>
-                  <Progress
-                    value={budgetUsedCapped}
-                    className={
-                      budgetUsed > 90
-                        ? '[&>div]:bg-red-500'
-                        : budgetUsed > 70
-                        ? '[&>div]:bg-amber-500'
-                        : ''
-                    }
-                  />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {budgetUsed.toFixed(1)}% utilisé
-                    </span>
-                    <span className="font-medium">
-                      {formatCurrency(projet.reste_budget || 0)} restant
-                    </span>
-                  </div>
+                <Progress
+                  value={budgetUsedCapped}
+                  className={
+                    budgetUsed > 90
+                      ? '[&>div]:bg-red-500'
+                      : budgetUsed > 70
+                      ? '[&>div]:bg-amber-500'
+                      : ''
+                  }
+                />
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {budgetUsed.toFixed(1)}% utilisé
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(projet.reste_budget || 0)} restant
+                  </span>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* Transactions du projet */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Transactions du projet</h2>
+        <p className="text-sm text-muted-foreground">
+          {projetTransactions.length} transaction(s)
+        </p>
+        <TransactionList
+          transactions={projetTransactions}
+          showArtiste
+          showCategorie
+          showActions
+          canEdit={canEdit}
+          returnUrl={`/dashboard/projets/${id}`}
+          onDelete={handleDeleteTransaction}
+          emptyMessage="Aucune transaction pour ce projet"
+        />
+      </div>
+
+      {/* Graphiques par catégorie */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         {/* Dépenses par catégorie */}
         <Card className="card-hover bg-gradient-to-br from-rose-50 to-pink-50 border-rose-100">
           <CardHeader>
@@ -507,24 +526,6 @@ export default function ProjetDetailPage({
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Transactions du projet */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Transactions du projet</h2>
-        <p className="text-sm text-muted-foreground">
-          {projetTransactions.length} transaction(s)
-        </p>
-        <TransactionList
-          transactions={projetTransactions}
-          showArtiste
-          showCategorie
-          showActions
-          canEdit={canEdit}
-          returnUrl={`/dashboard/projets/${id}`}
-          onDelete={handleDeleteTransaction}
-          emptyMessage="Aucune transaction pour ce projet"
-        />
       </div>
     </div>
   );

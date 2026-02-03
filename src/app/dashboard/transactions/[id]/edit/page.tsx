@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Pencil, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Loader2, Landmark, Users, FolderKanban } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { getTransaction, updateTransaction } from '@/lib/actions/transactions';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
@@ -48,6 +49,7 @@ export default function EditTransactionPage({
   const [formDescription, setFormDescription] = useState('');
   const [formCredit, setFormCredit] = useState('');
   const [formDebit, setFormDebit] = useState('');
+  const [formTypeLiaison, setFormTypeLiaison] = useState<'asbl' | 'artiste' | 'projet'>('asbl');
   const [formArtisteId, setFormArtisteId] = useState<string>('');
   const [formProjetId, setFormProjetId] = useState<string>('');
   const [formCategorie, setFormCategorie] = useState<string>('');
@@ -71,8 +73,16 @@ export default function EditTransactionPage({
       setFormDescription(tx.description);
       setFormCredit(tx.credit > 0 ? tx.credit.toString() : '');
       setFormDebit(tx.debit > 0 ? tx.debit.toString() : '');
-      setFormArtisteId(tx.artiste_id || '');
-      setFormProjetId(tx.projet_id || '');
+      // Déterminer le type de liaison
+      if (tx.artiste_id) {
+        setFormTypeLiaison('artiste');
+        setFormArtisteId(tx.artiste_id);
+      } else if (tx.projet_id) {
+        setFormTypeLiaison('projet');
+        setFormProjetId(tx.projet_id);
+      } else {
+        setFormTypeLiaison('asbl');
+      }
       setFormCategorie(tx.categorie || '');
 
       if (artistesRes.data) setArtistes(artistesRes.data);
@@ -104,6 +114,16 @@ export default function EditTransactionPage({
       return;
     }
 
+    if (formTypeLiaison === 'artiste' && !formArtisteId) {
+      toast.error('Veuillez sélectionner un artiste');
+      return;
+    }
+
+    if (formTypeLiaison === 'projet' && !formProjetId) {
+      toast.error('Veuillez sélectionner un projet');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const { success, error } = await updateTransaction(id, {
@@ -111,8 +131,8 @@ export default function EditTransactionPage({
       description: formDescription.trim(),
       credit,
       debit,
-      artiste_id: formArtisteId || null,
-      projet_id: formProjetId || null,
+      artiste_id: formTypeLiaison === 'artiste' ? formArtisteId : null,
+      projet_id: formTypeLiaison === 'projet' ? formProjetId : null,
       categorie: (formCategorie as TransactionCategorie) || null,
     });
 
@@ -217,38 +237,92 @@ export default function EditTransactionPage({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="artiste">Artiste (optionnel)</Label>
-                <Select value={formArtisteId || '__none__'} onValueChange={(val) => setFormArtisteId(val === '__none__' ? '' : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selectionner un artiste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Aucun</SelectItem>
-                    {artistes.map((artiste) => (
-                      <SelectItem key={artiste.id} value={artiste.id}>
-                        {artiste.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Lier à</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'asbl' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'asbl' && 'bg-slate-700 hover:bg-slate-800'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('asbl');
+                      setFormArtisteId('');
+                      setFormProjetId('');
+                    }}
+                  >
+                    <Landmark className="mr-2 h-4 w-4" />
+                    ASBL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'artiste' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'artiste' && 'bg-blue-600 hover:bg-blue-700'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('artiste');
+                      setFormProjetId('');
+                    }}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Artiste
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'projet' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'projet' && 'bg-purple-600 hover:bg-purple-700'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('projet');
+                      setFormArtisteId('');
+                    }}
+                  >
+                    <FolderKanban className="mr-2 h-4 w-4" />
+                    Projet
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="projet">Projet (optionnel)</Label>
-                <Select value={formProjetId || '__none__'} onValueChange={(val) => setFormProjetId(val === '__none__' ? '' : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selectionner un projet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Aucun</SelectItem>
-                    {projets.map((projet) => (
-                      <SelectItem key={projet.id} value={projet.id}>
-                        {projet.nom} ({projet.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formTypeLiaison === 'artiste' && (
+                <div className="grid gap-2">
+                  <Label htmlFor="artiste">Artiste</Label>
+                  <Select value={formArtisteId} onValueChange={setFormArtisteId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un artiste" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {artistes.map((artiste) => (
+                        <SelectItem key={artiste.id} value={artiste.id}>
+                          {artiste.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {formTypeLiaison === 'projet' && (
+                <div className="grid gap-2">
+                  <Label htmlFor="projet">Projet</Label>
+                  <Select value={formProjetId} onValueChange={setFormProjetId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un projet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projets.map((projet) => (
+                        <SelectItem key={projet.id} value={projet.id}>
+                          {projet.nom} ({projet.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid gap-2">
                 <Label htmlFor="categorie">Categorie</Label>

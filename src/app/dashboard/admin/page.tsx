@@ -95,7 +95,6 @@ const activityLog = [
 
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -324,76 +323,10 @@ export default function AdminPage() {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle>Gestion des utilisateurs</CardTitle>
-                  <CardDescription>
-                    Gérer les accès et les rôles des utilisateurs
-                  </CardDescription>
-                </div>
-                <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full sm:w-auto bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white shadow-md">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nouvel utilisateur
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Nouvel utilisateur</DialogTitle>
-                      <DialogDescription>
-                        Inviter un nouvel utilisateur à rejoindre l&apos;application
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="name">Nom</Label>
-                        <Input id="name" placeholder="Nom complet" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="email@example.com" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="role">Rôle</Label>
-                        <Select defaultValue="viewer">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4 text-red-500" />
-                                Admin - Accès complet
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="editor">
-                              <div className="flex items-center gap-2">
-                                <Pencil className="h-4 w-4 text-blue-500" />
-                                Éditeur - Lecture/Écriture
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="viewer">
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-gray-500" />
-                                Lecteur - Lecture seule
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsUserDialogOpen(false)}>
-                        Annuler
-                      </Button>
-                      <Button onClick={() => setIsUserDialogOpen(false)}>
-                        Envoyer l&apos;invitation
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+              <CardTitle>Gestion des utilisateurs</CardTitle>
+              <CardDescription>
+                Gérer les accès et les rôles des utilisateurs
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4">

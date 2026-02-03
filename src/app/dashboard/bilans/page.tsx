@@ -349,6 +349,36 @@ export default function BilansPage() {
         )}
       </div>
 
+      {/* Section Transactions du Bilan */}
+      <div className="print-section-large">
+        <SectionHeader
+          icon={<IllustrationDocuments size={60} />}
+          title={`Transactions ${selectedYear}`}
+          description="Liste des transactions comptables (hors transferts internes)"
+          className="print-section-header"
+        />
+
+        {/* Transactions */}
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground px-1">
+            {yearTransactions.length} transaction(s) • Transferts internes exclus
+          </p>
+          <TransactionList
+            transactions={yearTransactions}
+            showArtiste
+            showProjet
+            showCategorie
+            showActions
+            canEdit={canEdit}
+            returnUrl="/dashboard/bilans"
+            onDelete={handleDeleteTransaction}
+            emptyMessage={`Aucune transaction pour ${selectedYear}`}
+            mobileCardClassName="bg-gradient-to-br from-amber-50/30 to-orange-50/30"
+            desktopTableClassName="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 print-keep-together"
+          />
+        </div>
+      </div>
+
       {/* Section Graphiques - Large section, let content flow naturally */}
       <div className="print-section-large">
         <SectionHeader
@@ -688,36 +718,6 @@ export default function BilansPage() {
             <div className="w-full sm:w-auto flex h-10 bg-muted rounded-md animate-pulse" />
           </div>
         )}
-      </div>
-
-      {/* Section Transactions du Bilan */}
-      <div className="print-section-large">
-        <SectionHeader
-          icon={<IllustrationDocuments size={60} />}
-          title={`Transactions ${selectedYear}`}
-          description="Liste des transactions comptables (hors transferts internes)"
-          className="print-section-header"
-        />
-
-        {/* Transactions */}
-        <div className="mt-4 space-y-3">
-          <p className="text-sm text-muted-foreground px-1">
-            {yearTransactions.length} transaction(s) • Transferts internes exclus
-          </p>
-          <TransactionList
-            transactions={yearTransactions}
-            showArtiste
-            showProjet
-            showCategorie
-            showActions
-            canEdit={canEdit}
-            returnUrl="/dashboard/bilans"
-            onDelete={handleDeleteTransaction}
-            emptyMessage={`Aucune transaction pour ${selectedYear}`}
-            mobileCardClassName="bg-gradient-to-br from-amber-50/30 to-orange-50/30"
-            desktopTableClassName="bg-gradient-to-br from-amber-50/40 to-orange-50/40 border-amber-100/50 print-keep-together"
-          />
-        </div>
       </div>
     </div>
   );

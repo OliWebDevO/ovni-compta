@@ -66,7 +66,7 @@ export interface Transaction {
 }
 
 // Types pour les transferts internes
-export type CompteType = 'artiste' | 'projet';
+export type CompteType = 'artiste' | 'projet' | 'asbl';
 
 export interface Transfert {
   id: string;
@@ -164,3 +164,34 @@ export const RESSOURCE_CATEGORIES: { value: RessourceCategorie; label: string; d
   { value: 'artistes', label: 'Artistes', description: 'Statut d\'artiste et secteur culturel' },
   { value: 'liens', label: 'Liens utiles', description: 'Sites et ressources externes' },
 ];
+
+// Types pour les factures
+export type TypeLiaison = 'artiste' | 'projet' | 'asbl';
+
+export interface Facture {
+  id: string;
+  date: string;
+  description: string;
+  type_liaison: TypeLiaison;
+  artiste_id: string | null;
+  projet_id: string | null;
+  fichier_nom: string;
+  fichier_path: string;
+  fichier_size: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FactureWithRelations extends Facture {
+  artiste_nom?: string;
+  artiste_couleur?: string;
+  projet_nom?: string;
+  projet_code?: string;
+}
+
+export const TYPE_LIAISON_LABELS: Record<TypeLiaison, string> = {
+  artiste: 'Artiste',
+  projet: 'Projet',
+  asbl: 'ASBL',
+};

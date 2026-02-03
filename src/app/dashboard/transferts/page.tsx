@@ -46,8 +46,10 @@ import {
   Loader2,
   Trash2,
   Pencil,
+  Landmark,
 } from 'lucide-react';
 import { getTransferts, createTransfert, updateTransfert, deleteTransfert } from '@/lib/actions/transferts';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { toast } from 'sonner';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
@@ -77,7 +79,7 @@ export default function TransfertsPage() {
   const [sourceType, setSourceType] = useState<CompteType>('artiste');
   const [sourceId, setSourceId] = useState<string>('');
   const [destinationType, setDestinationType] = useState<CompteType>('artiste');
-  const [destinationId, setDestinationId] = useState<string>('');
+  const [destinationIds, setDestinationIds] = useState<string[]>([]);
   const [montant, setMontant] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -137,13 +139,19 @@ export default function TransfertsPage() {
 
   // Handler creation transfert
   const handleCreateTransfert = async () => {
-    // Validation
+    // Validation - pour ASBL, sourceId sera 'asbl'
     if (!sourceId) {
       toast.error('Veuillez sélectionner une source');
       return;
     }
-    if (!destinationId) {
-      toast.error('Veuillez sélectionner une destination');
+    // Pour ASBL en destination, on met 'asbl' dans le tableau
+    if (destinationIds.length === 0) {
+      toast.error('Veuillez sélectionner au moins une destination');
+      return;
+    }
+    // Empêcher le transfert ASBL vers ASBL
+    if (sourceType === 'asbl' && destinationType === 'asbl') {
+      toast.error('Impossible de transférer de la Caisse OVNI vers elle-même');
       return;
     }
     const montantNum = parseFloat(montant);
@@ -158,37 +166,51 @@ export default function TransfertsPage() {
 
     setIsSubmitting(true);
 
-    const { success, error } = await createTransfert({
-      date,
-      montant: montantNum,
-      description: description.trim(),
-      source_type: sourceType,
-      source_artiste_id: sourceType === 'artiste' ? sourceId : null,
-      source_projet_id: sourceType === 'projet' ? sourceId : null,
-      destination_type: destinationType,
-      destination_artiste_id: destinationType === 'artiste' ? destinationId : null,
-      destination_projet_id: destinationType === 'projet' ? destinationId : null,
-    });
+    try {
+      // Nombre de destinations
+      const count = destinationIds.length;
+      const dividedMontant = Math.round((montantNum / count) * 100) / 100;
 
-    setIsSubmitting(false);
+      // Créer un transfert par destination
+      for (const destId of destinationIds) {
+        const { error } = await createTransfert({
+          date,
+          montant: dividedMontant,
+          description: description.trim(),
+          source_type: sourceType,
+          source_artiste_id: sourceType === 'artiste' ? sourceId : null,
+          source_projet_id: sourceType === 'projet' ? sourceId : null,
+          destination_type: destinationType,
+          destination_artiste_id: destinationType === 'artiste' ? destId : null,
+          destination_projet_id: destinationType === 'projet' ? destId : null,
+        });
 
-    if (error) {
-      toast.error(`Erreur: ${error}`);
-      return;
+        if (error) {
+          toast.error(`Erreur: ${error}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      setIsSubmitting(false);
+      toast.success(count > 1 ? `${count} transferts effectués avec succès` : 'Transfert effectué avec succès');
+      setIsDialogOpen(false);
+
+      // Reset form
+      setSourceType('artiste');
+      setSourceId('');
+      setDestinationType('artiste');
+      setDestinationIds([]);
+      setMontant('');
+      setDescription('');
+
+      // Refresh la liste
+      const { data: newTransferts } = await getTransferts();
+      if (newTransferts) setTransferts(newTransferts);
+    } catch {
+      setIsSubmitting(false);
+      toast.error('Une erreur est survenue');
     }
-
-    toast.success('Transfert effectué avec succès');
-    setIsDialogOpen(false);
-
-    // Reset form
-    setSourceId('');
-    setDestinationId('');
-    setMontant('');
-    setDescription('');
-
-    // Refresh la liste
-    const { data: newTransferts } = await getTransferts();
-    if (newTransferts) setTransferts(newTransferts);
   };
 
   // Handler suppression transfert
@@ -211,9 +233,13 @@ export default function TransfertsPage() {
     setEditDescription(tf.description);
     setEditMontant(tf.montant.toString());
     setEditSourceType(tf.source_type);
-    setEditSourceId(tf.source_artiste_id || tf.source_projet_id || '');
+    setEditSourceId(
+      tf.source_type === 'asbl' ? 'asbl' : (tf.source_artiste_id || tf.source_projet_id || '')
+    );
     setEditDestinationType(tf.destination_type);
-    setEditDestinationId(tf.destination_artiste_id || tf.destination_projet_id || '');
+    setEditDestinationId(
+      tf.destination_type === 'asbl' ? 'asbl' : (tf.destination_artiste_id || tf.destination_projet_id || '')
+    );
     setIsEditDialogOpen(true);
   };
 
@@ -228,6 +254,11 @@ export default function TransfertsPage() {
     }
     if (!editDestinationId) {
       toast.error('Veuillez sélectionner une destination');
+      return;
+    }
+    // Empêcher le transfert ASBL vers ASBL
+    if (editSourceType === 'asbl' && editDestinationType === 'asbl') {
+      toast.error('Impossible de transférer de la Caisse OVNI vers elle-même');
       return;
     }
     const montantNum = parseFloat(editMontant);
@@ -332,19 +363,32 @@ export default function TransfertsPage() {
                     value={sourceType}
                     onValueChange={(v) => {
                       setSourceType(v as CompteType);
-                      setSourceId('');
+                      setSourceId(v === 'asbl' ? 'asbl' : '');
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Type de compte" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="asbl">
+                        <span className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4" />
+                          Caisse OVNI (ASBL)
+                        </span>
+                      </SelectItem>
                       <SelectItem value="artiste">Artiste</SelectItem>
                       <SelectItem value="projet">Projet</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  {sourceType === 'artiste' ? (
+                  {sourceType === 'asbl' && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-lg text-slate-700">
+                      <Landmark className="h-5 w-5" />
+                      <span className="font-medium">Caisse OVNI</span>
+                    </div>
+                  )}
+
+                  {sourceType === 'artiste' && (
                     <Select value={sourceId} onValueChange={setSourceId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selectionner un artiste" />
@@ -355,7 +399,7 @@ export default function TransfertsPage() {
                             key={a.id}
                             value={a.id}
                             disabled={
-                              a.id === destinationId &&
+                              destinationIds.includes(a.id) &&
                               destinationType === 'artiste'
                             }
                           >
@@ -364,7 +408,9 @@ export default function TransfertsPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                  ) : (
+                  )}
+
+                  {sourceType === 'projet' && (
                     <Select value={sourceId} onValueChange={setSourceId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selectionner un projet" />
@@ -375,7 +421,7 @@ export default function TransfertsPage() {
                             key={p.id}
                             value={p.id}
                             disabled={
-                              p.id === destinationId &&
+                              destinationIds.includes(p.id) &&
                               destinationType === 'projet'
                             }
                           >
@@ -405,62 +451,72 @@ export default function TransfertsPage() {
                     value={destinationType}
                     onValueChange={(v) => {
                       setDestinationType(v as CompteType);
-                      setDestinationId('');
+                      setDestinationIds(v === 'asbl' ? ['asbl'] : []);
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Type de compte" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="artiste">Artiste</SelectItem>
-                      <SelectItem value="projet">Projet</SelectItem>
+                      <SelectItem value="asbl">
+                        <span className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4" />
+                          Caisse OVNI (ASBL)
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="artiste">Artiste(s)</SelectItem>
+                      <SelectItem value="projet">Projet(s)</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  {destinationType === 'artiste' ? (
-                    <Select
-                      value={destinationId}
-                      onValueChange={setDestinationId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selectionner un artiste" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {artistes.map((a) => (
-                          <SelectItem
-                            key={a.id}
-                            value={a.id}
-                            disabled={
-                              a.id === sourceId && sourceType === 'artiste'
-                            }
-                          >
-                            {a.nom} ({formatCurrency(a.solde || 0)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Select
-                      value={destinationId}
-                      onValueChange={setDestinationId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selectionner un projet" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projetsActifs.map((p) => (
-                          <SelectItem
-                            key={p.id}
-                            value={p.id}
-                            disabled={
-                              p.id === sourceId && sourceType === 'projet'
-                            }
-                          >
-                            {p.nom} ({p.code}) - {formatCurrency(p.solde || 0)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {destinationType === 'asbl' && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-lg text-slate-700">
+                      <Landmark className="h-5 w-5" />
+                      <span className="font-medium">Caisse OVNI</span>
+                    </div>
+                  )}
+
+                  {destinationType === 'artiste' && (
+                    <>
+                      <MultiSelect
+                        options={artistes
+                          .filter((a) => !(a.id === sourceId && sourceType === 'artiste'))
+                          .map((a) => ({
+                            value: a.id,
+                            label: `${a.nom} (${formatCurrency(a.solde || 0)})`,
+                            color: a.couleur,
+                          }))}
+                        selected={destinationIds}
+                        onChange={setDestinationIds}
+                        placeholder="Sélectionner un ou plusieurs artistes"
+                      />
+                      {destinationIds.length > 1 && (
+                        <p className="text-sm text-emerald-600">
+                          Le montant sera divisé en {destinationIds.length} transferts égaux
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {destinationType === 'projet' && (
+                    <>
+                      <MultiSelect
+                        options={projetsActifs
+                          .filter((p) => !(p.id === sourceId && sourceType === 'projet'))
+                          .map((p) => ({
+                            value: p.id,
+                            label: `${p.nom} (${p.code}) - ${formatCurrency(p.solde || 0)}`,
+                          }))}
+                        selected={destinationIds}
+                        onChange={setDestinationIds}
+                        placeholder="Sélectionner un ou plusieurs projets"
+                      />
+                      {destinationIds.length > 1 && (
+                        <p className="text-sm text-emerald-600">
+                          Le montant sera divisé en {destinationIds.length} transferts égaux
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -505,7 +561,7 @@ export default function TransfertsPage() {
                 disabled={
                   isSubmitting ||
                   !sourceId ||
-                  !destinationId ||
+                  destinationIds.length === 0 ||
                   !montant ||
                   parseFloat(montant) <= 0
                 }
@@ -562,19 +618,32 @@ export default function TransfertsPage() {
                     value={editSourceType}
                     onValueChange={(v) => {
                       setEditSourceType(v as CompteType);
-                      setEditSourceId('');
+                      setEditSourceId(v === 'asbl' ? 'asbl' : '');
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Type de compte" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="asbl">
+                        <span className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4" />
+                          Caisse OVNI (ASBL)
+                        </span>
+                      </SelectItem>
                       <SelectItem value="artiste">Artiste</SelectItem>
                       <SelectItem value="projet">Projet</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  {editSourceType === 'artiste' ? (
+                  {editSourceType === 'asbl' && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-lg text-slate-700">
+                      <Landmark className="h-5 w-5" />
+                      <span className="font-medium">Caisse OVNI</span>
+                    </div>
+                  )}
+
+                  {editSourceType === 'artiste' && (
                     <Select value={editSourceId} onValueChange={setEditSourceId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selectionner un artiste" />
@@ -594,7 +663,9 @@ export default function TransfertsPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                  ) : (
+                  )}
+
+                  {editSourceType === 'projet' && (
                     <Select value={editSourceId} onValueChange={setEditSourceId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selectionner un projet" />
@@ -635,19 +706,32 @@ export default function TransfertsPage() {
                     value={editDestinationType}
                     onValueChange={(v) => {
                       setEditDestinationType(v as CompteType);
-                      setEditDestinationId('');
+                      setEditDestinationId(v === 'asbl' ? 'asbl' : '');
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Type de compte" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="asbl">
+                        <span className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4" />
+                          Caisse OVNI (ASBL)
+                        </span>
+                      </SelectItem>
                       <SelectItem value="artiste">Artiste</SelectItem>
                       <SelectItem value="projet">Projet</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  {editDestinationType === 'artiste' ? (
+                  {editDestinationType === 'asbl' && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-lg text-slate-700">
+                      <Landmark className="h-5 w-5" />
+                      <span className="font-medium">Caisse OVNI</span>
+                    </div>
+                  )}
+
+                  {editDestinationType === 'artiste' && (
                     <Select
                       value={editDestinationId}
                       onValueChange={setEditDestinationId}
@@ -669,7 +753,9 @@ export default function TransfertsPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                  ) : (
+                  )}
+
+                  {editDestinationType === 'projet' && (
                     <Select
                       value={editDestinationId}
                       onValueChange={setEditDestinationId}
@@ -932,9 +1018,11 @@ export default function TransfertsPage() {
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className="text-rose-600 border-rose-200"
+                        className={tf.source_type === 'asbl'
+                          ? "text-slate-600 border-slate-200"
+                          : "text-rose-600 border-rose-200"}
                       >
-                        {tf.source_type === 'artiste' ? 'Artiste' : 'Projet'}:{' '}
+                        {tf.source_type === 'artiste' ? 'Artiste' : tf.source_type === 'projet' ? 'Projet' : 'ASBL'}:{' '}
                         {getCompteLabel(tf.source_nom)}
                       </Badge>
                     </TableCell>
@@ -944,11 +1032,13 @@ export default function TransfertsPage() {
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className="text-emerald-600 border-emerald-200"
+                        className={tf.destination_type === 'asbl'
+                          ? "text-slate-600 border-slate-200"
+                          : "text-emerald-600 border-emerald-200"}
                       >
                         {tf.destination_type === 'artiste'
                           ? 'Artiste'
-                          : 'Projet'}
+                          : tf.destination_type === 'projet' ? 'Projet' : 'ASBL'}
                         :{' '}
                         {getCompteLabel(tf.destination_nom)}
                       </Badge>

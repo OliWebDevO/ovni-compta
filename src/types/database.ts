@@ -464,6 +464,73 @@ export type Database = {
         };
         Relationships: [];
       };
+      factures: {
+        Row: {
+          id: string;
+          date: string;
+          description: string;
+          type_liaison: TypeLiaison;
+          artiste_id: string | null;
+          projet_id: string | null;
+          fichier_nom: string;
+          fichier_path: string;
+          fichier_size: number | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          date?: string;
+          description: string;
+          type_liaison: TypeLiaison;
+          artiste_id?: string | null;
+          projet_id?: string | null;
+          fichier_nom: string;
+          fichier_path: string;
+          fichier_size?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          date?: string;
+          description?: string;
+          type_liaison?: TypeLiaison;
+          artiste_id?: string | null;
+          projet_id?: string | null;
+          fichier_nom?: string;
+          fichier_path?: string;
+          fichier_size?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'factures_artiste_id_fkey';
+            columns: ['artiste_id'];
+            isOneToOne: false;
+            referencedRelation: 'artistes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'factures_projet_id_fkey';
+            columns: ['projet_id'];
+            isOneToOne: false;
+            referencedRelation: 'projets';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'factures_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       artistes_with_stats: {
@@ -575,6 +642,8 @@ export type RessourceCategorie =
   | 'artistes'
   | 'liens';
 
+export type TypeLiaison = 'artiste' | 'projet' | 'asbl';
+
 // Helper types for easier use
 export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row'];
@@ -596,6 +665,7 @@ export type Transaction = Tables<'transactions'>;
 export type Transfert = Tables<'transferts'>;
 export type ProjetArtiste = Tables<'projet_artistes'>;
 export type Ressource = Tables<'ressources'>;
+export type Facture = Tables<'factures'>;
 
 // View types
 export type ArtisteWithStats = Views<'artistes_with_stats'>;
@@ -620,4 +690,12 @@ export interface TransactionWithRelations {
   artiste_couleur?: string;
   projet_code?: string;
   projet_nom?: string;
+}
+
+// Facture with relations
+export interface FactureWithRelations extends Facture {
+  artiste_nom?: string;
+  artiste_couleur?: string;
+  projet_nom?: string;
+  projet_code?: string;
 }

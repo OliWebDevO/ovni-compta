@@ -13,6 +13,8 @@ import {
   User,
   Sparkles,
   BookOpen,
+  FileText,
+  Landmark,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -89,6 +91,17 @@ const menuItems = [
     iconBg: 'bg-purple-100 text-purple-600',
   },
   {
+    title: 'Caisse OVNI',
+    url: '/dashboard/caisse-ovni',
+    icon: Landmark,
+    gradient: 'from-slate-600 to-zinc-700',
+    bgHover: 'hover:bg-slate-50',
+    textActive: 'text-slate-700',
+    bgActive: 'bg-gradient-to-r from-slate-100 to-zinc-100',
+    borderActive: 'border-slate-300',
+    iconBg: 'bg-slate-100 text-slate-600',
+  },
+  {
     title: 'Bilans',
     url: '/dashboard/bilans',
     icon: BarChart3,
@@ -98,6 +111,17 @@ const menuItems = [
     bgActive: 'bg-gradient-to-r from-amber-100 to-orange-100',
     borderActive: 'border-amber-300',
     iconBg: 'bg-amber-100 text-amber-600',
+  },
+  {
+    title: 'Factures',
+    url: '/dashboard/factures',
+    icon: FileText,
+    gradient: 'from-teal-500 to-cyan-600',
+    bgHover: 'hover:bg-teal-50',
+    textActive: 'text-teal-700',
+    bgActive: 'bg-gradient-to-r from-teal-100 to-cyan-100',
+    borderActive: 'border-teal-300',
+    iconBg: 'bg-teal-100 text-teal-600',
   },
   {
     title: 'Ressources',

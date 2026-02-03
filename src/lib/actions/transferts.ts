@@ -7,10 +7,10 @@ export interface TransfertWithRelations {
   date: string;
   montant: number;
   description: string;
-  source_type: 'artiste' | 'projet';
+  source_type: 'artiste' | 'projet' | 'asbl';
   source_artiste_id: string | null;
   source_projet_id: string | null;
-  destination_type: 'artiste' | 'projet';
+  destination_type: 'artiste' | 'projet' | 'asbl';
   destination_artiste_id: string | null;
   destination_projet_id: string | null;
   transaction_debit_id: string;
@@ -41,27 +41,35 @@ export async function getTransferts(): Promise<{
     return { data: null, error: error.message };
   }
 
-  const transferts: TransfertWithRelations[] = (data || []).map((t) => ({
-    id: t.id,
-    date: t.date,
-    montant: t.montant,
-    description: t.description,
-    source_type: t.source_type,
-    source_artiste_id: t.source_artiste_id,
-    source_projet_id: t.source_projet_id,
-    destination_type: t.destination_type,
-    destination_artiste_id: t.destination_artiste_id,
-    destination_projet_id: t.destination_projet_id,
-    transaction_debit_id: t.transaction_debit_id,
-    transaction_credit_id: t.transaction_credit_id,
-    created_at: t.created_at,
-    source_nom:
-      (t.source_artiste as { nom: string } | null)?.nom ||
-      (t.source_projet as { nom: string } | null)?.nom,
-    destination_nom:
-      (t.dest_artiste as { nom: string } | null)?.nom ||
-      (t.dest_projet as { nom: string } | null)?.nom,
-  }));
+  const transferts: TransfertWithRelations[] = (data || []).map((t) => {
+    const sourceType = t.source_type as 'artiste' | 'projet' | 'asbl';
+    const destinationType = t.destination_type as 'artiste' | 'projet' | 'asbl';
+    return {
+      id: t.id,
+      date: t.date,
+      montant: t.montant,
+      description: t.description,
+      source_type: sourceType,
+      source_artiste_id: t.source_artiste_id,
+      source_projet_id: t.source_projet_id,
+      destination_type: destinationType,
+      destination_artiste_id: t.destination_artiste_id,
+      destination_projet_id: t.destination_projet_id,
+      transaction_debit_id: t.transaction_debit_id,
+      transaction_credit_id: t.transaction_credit_id,
+      created_at: t.created_at,
+      source_nom:
+        sourceType === 'asbl'
+          ? 'Caisse OVNI'
+          : (t.source_artiste as { nom: string } | null)?.nom ||
+            (t.source_projet as { nom: string } | null)?.nom,
+      destination_nom:
+        destinationType === 'asbl'
+          ? 'Caisse OVNI'
+          : (t.dest_artiste as { nom: string } | null)?.nom ||
+            (t.dest_projet as { nom: string } | null)?.nom,
+    };
+  });
 
   return { data: transferts, error: null };
 }
@@ -70,10 +78,10 @@ export async function createTransfert(input: {
   date: string;
   montant: number;
   description: string;
-  source_type: 'artiste' | 'projet';
+  source_type: 'artiste' | 'projet' | 'asbl';
   source_artiste_id: string | null;
   source_projet_id: string | null;
-  destination_type: 'artiste' | 'projet';
+  destination_type: 'artiste' | 'projet' | 'asbl';
   destination_artiste_id: string | null;
   destination_projet_id: string | null;
 }): Promise<{ success: boolean; error: string | null }> {
@@ -84,6 +92,7 @@ export async function createTransfert(input: {
   } = await supabase.auth.getUser();
 
   // Créer la transaction de débit (sortie de la source)
+  // Pour ASBL: artiste_id et projet_id sont null
   const { data: debitTx, error: debitError } = await supabase
     .from('transactions')
     .insert({
@@ -104,6 +113,7 @@ export async function createTransfert(input: {
   }
 
   // Créer la transaction de crédit (entrée dans la destination)
+  // Pour ASBL: artiste_id et projet_id sont null
   const { data: creditTx, error: creditError } = await supabase
     .from('transactions')
     .insert({
@@ -124,16 +134,17 @@ export async function createTransfert(input: {
   }
 
   // Créer le transfert liant les deux transactions
+  // Note: Cast nécessaire car le type DB est plus restrictif que notre type TypeScript
   const { error: transfertError } = await supabase
     .from('transferts')
     .insert({
       date: input.date,
       montant: input.montant,
       description: input.description,
-      source_type: input.source_type,
+      source_type: input.source_type as 'artiste' | 'projet',
       source_artiste_id: input.source_artiste_id,
       source_projet_id: input.source_projet_id,
-      destination_type: input.destination_type,
+      destination_type: input.destination_type as 'artiste' | 'projet',
       destination_artiste_id: input.destination_artiste_id,
       destination_projet_id: input.destination_projet_id,
       transaction_debit_id: debitTx.id,
@@ -154,10 +165,10 @@ export async function updateTransfert(
     date: string;
     montant: number;
     description: string;
-    source_type: 'artiste' | 'projet';
+    source_type: 'artiste' | 'projet' | 'asbl';
     source_artiste_id: string | null;
     source_projet_id: string | null;
-    destination_type: 'artiste' | 'projet';
+    destination_type: 'artiste' | 'projet' | 'asbl';
     destination_artiste_id: string | null;
     destination_projet_id: string | null;
   }
@@ -208,16 +219,17 @@ export async function updateTransfert(
   }
 
   // Mettre à jour le transfert
+  // Note: Cast nécessaire car le type DB est plus restrictif que notre type TypeScript
   const { error: transfertError } = await supabase
     .from('transferts')
     .update({
       date: input.date,
       montant: input.montant,
       description: input.description,
-      source_type: input.source_type,
+      source_type: input.source_type as 'artiste' | 'projet',
       source_artiste_id: input.source_artiste_id,
       source_projet_id: input.source_projet_id,
-      destination_type: input.destination_type,
+      destination_type: input.destination_type as 'artiste' | 'projet',
       destination_artiste_id: input.destination_artiste_id,
       destination_projet_id: input.destination_projet_id,
     })

@@ -20,8 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Receipt, Loader2 } from 'lucide-react';
+import { ArrowLeft, Receipt, Loader2, Landmark, Users, FolderKanban } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { createTransaction } from '@/lib/actions/transactions';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
 import type { ArtisteWithStats, ProjetWithStats, TransactionCategorie } from '@/types/database';
@@ -41,8 +43,9 @@ export default function NewTransactionPage() {
   const [formDescription, setFormDescription] = useState('');
   const [formCredit, setFormCredit] = useState('');
   const [formDebit, setFormDebit] = useState('');
-  const [formArtisteId, setFormArtisteId] = useState<string>('');
-  const [formProjetId, setFormProjetId] = useState<string>('');
+  const [formTypeLiaison, setFormTypeLiaison] = useState<'asbl' | 'artiste' | 'projet'>('asbl');
+  const [formArtisteIds, setFormArtisteIds] = useState<string[]>([]);
+  const [formProjetIds, setFormProjetIds] = useState<string[]>([]);
   const [formCategorie, setFormCategorie] = useState<string>('');
 
   useEffect(() => {
@@ -81,27 +84,76 @@ export default function NewTransactionPage() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    const { data, error } = await createTransaction({
-      date: formDate,
-      description: formDescription.trim(),
-      credit,
-      debit,
-      artiste_id: formArtisteId || null,
-      projet_id: formProjetId || null,
-      categorie: (formCategorie as TransactionCategorie) || null,
-    });
-
-    setIsSubmitting(false);
-
-    if (error) {
-      toast.error(`Erreur: ${error}`);
+    if (formTypeLiaison === 'artiste' && formArtisteIds.length === 0) {
+      toast.error('Veuillez sélectionner au moins un artiste');
       return;
     }
 
-    toast.success('Transaction créée avec succès');
-    router.push('/dashboard/transactions');
+    if (formTypeLiaison === 'projet' && formProjetIds.length === 0) {
+      toast.error('Veuillez sélectionner au moins un projet');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Déterminer le nombre de transactions à créer
+      let selectedIds: string[] = [];
+      if (formTypeLiaison === 'artiste') {
+        selectedIds = formArtisteIds;
+      } else if (formTypeLiaison === 'projet') {
+        selectedIds = formProjetIds;
+      }
+
+      const count = selectedIds.length || 1;
+      const dividedCredit = credit / count;
+      const dividedDebit = debit / count;
+
+      // Si ASBL, créer une seule transaction
+      if (formTypeLiaison === 'asbl') {
+        const { error } = await createTransaction({
+          date: formDate,
+          description: formDescription.trim(),
+          credit,
+          debit,
+          artiste_id: null,
+          projet_id: null,
+          categorie: (formCategorie as TransactionCategorie) || null,
+        });
+
+        if (error) {
+          toast.error(`Erreur: ${error}`);
+          setIsSubmitting(false);
+          return;
+        }
+      } else {
+        // Créer une transaction par artiste/projet sélectionné
+        for (const id of selectedIds) {
+          const { error } = await createTransaction({
+            date: formDate,
+            description: formDescription.trim(),
+            credit: Math.round(dividedCredit * 100) / 100,
+            debit: Math.round(dividedDebit * 100) / 100,
+            artiste_id: formTypeLiaison === 'artiste' ? id : null,
+            projet_id: formTypeLiaison === 'projet' ? id : null,
+            categorie: (formCategorie as TransactionCategorie) || null,
+          });
+
+          if (error) {
+            toast.error(`Erreur: ${error}`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      setIsSubmitting(false);
+      toast.success(count > 1 ? `${count} transactions créées avec succès` : 'Transaction créée avec succès');
+      router.push('/dashboard/transactions');
+    } catch {
+      setIsSubmitting(false);
+      toast.error('Une erreur est survenue');
+    }
   };
 
   if (isLoading) {
@@ -194,38 +246,97 @@ export default function NewTransactionPage() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="artiste">Artiste (optionnel)</Label>
-                <Select value={formArtisteId || '__none__'} onValueChange={(val) => setFormArtisteId(val === '__none__' ? '' : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un artiste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Aucun</SelectItem>
-                    {artistes.map((artiste) => (
-                      <SelectItem key={artiste.id} value={artiste.id}>
-                        {artiste.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Lier à</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'asbl' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'asbl' && 'bg-slate-700 hover:bg-slate-800'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('asbl');
+                      setFormArtisteIds([]);
+                      setFormProjetIds([]);
+                    }}
+                  >
+                    <Landmark className="mr-2 h-4 w-4" />
+                    ASBL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'artiste' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'artiste' && 'bg-blue-600 hover:bg-blue-700'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('artiste');
+                      setFormProjetIds([]);
+                    }}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Artiste
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formTypeLiaison === 'projet' ? 'default' : 'outline'}
+                    className={cn(
+                      'flex-1',
+                      formTypeLiaison === 'projet' && 'bg-purple-600 hover:bg-purple-700'
+                    )}
+                    onClick={() => {
+                      setFormTypeLiaison('projet');
+                      setFormArtisteIds([]);
+                    }}
+                  >
+                    <FolderKanban className="mr-2 h-4 w-4" />
+                    Projet
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="projet">Projet (optionnel)</Label>
-                <Select value={formProjetId || '__none__'} onValueChange={(val) => setFormProjetId(val === '__none__' ? '' : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un projet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Aucun</SelectItem>
-                    {projets.map((projet) => (
-                      <SelectItem key={projet.id} value={projet.id}>
-                        {projet.nom} ({projet.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formTypeLiaison === 'artiste' && (
+                <div className="grid gap-2">
+                  <Label>Artistes</Label>
+                  <MultiSelect
+                    options={artistes.map((a) => ({
+                      value: a.id,
+                      label: a.nom,
+                      color: a.couleur,
+                    }))}
+                    selected={formArtisteIds}
+                    onChange={setFormArtisteIds}
+                    placeholder="Sélectionner un ou plusieurs artistes"
+                  />
+                  {formArtisteIds.length > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      Le montant sera divisé en {formArtisteIds.length} transactions égales
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {formTypeLiaison === 'projet' && (
+                <div className="grid gap-2">
+                  <Label>Projets</Label>
+                  <MultiSelect
+                    options={projets.map((p) => ({
+                      value: p.id,
+                      label: `${p.nom} (${p.code})`,
+                    }))}
+                    selected={formProjetIds}
+                    onChange={setFormProjetIds}
+                    placeholder="Sélectionner un ou plusieurs projets"
+                  />
+                  {formProjetIds.length > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      Le montant sera divisé en {formProjetIds.length} transactions égales
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="grid gap-2">
                 <Label htmlFor="categorie">Catégorie</Label>

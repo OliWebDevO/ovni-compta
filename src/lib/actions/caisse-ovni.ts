@@ -1,0 +1,125 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import type { TransactionCategorie } from '@/types/database';
+
+export interface AsblTransaction {
+  id: string;
+  date: string;
+  description: string;
+  credit: number;
+  debit: number;
+  categorie: TransactionCategorie | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getAsblTransactions(): Promise<{
+  data: AsblTransaction[] | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id, date, description, credit, debit, categorie, created_at, updated_at')
+    .is('artiste_id', null)
+    .is('projet_id', null)
+    .order('date', { ascending: false });
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  return { data: data as AsblTransaction[], error: null };
+}
+
+export async function getAsblStats(): Promise<{
+  data: {
+    totalCredits: number;
+    totalDebits: number;
+    solde: number;
+    transactionsCount: number;
+  } | null;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('credit, debit')
+    .is('artiste_id', null)
+    .is('projet_id', null);
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  const totalCredits = (data || []).reduce((sum, t) => sum + (t.credit || 0), 0);
+  const totalDebits = (data || []).reduce((sum, t) => sum + (t.debit || 0), 0);
+
+  return {
+    data: {
+      totalCredits,
+      totalDebits,
+      solde: totalCredits - totalDebits,
+      transactionsCount: data?.length || 0,
+    },
+    error: null,
+  };
+}
+
+export async function createAsblTransaction(input: {
+  date: string;
+  description: string;
+  credit: number;
+  debit: number;
+  categorie: TransactionCategorie | null;
+}): Promise<{ data: { id: string } | null; error: string | null }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .insert({
+      date: input.date,
+      description: input.description,
+      credit: input.credit,
+      debit: input.debit,
+      categorie: input.categorie,
+      artiste_id: null,
+      projet_id: null,
+      created_by: user?.id || null,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  return { data, error: null };
+}
+
+export async function deleteAsblTransaction(id: string): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', id)
+    .is('artiste_id', null)
+    .is('projet_id', null);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, error: null };
+}

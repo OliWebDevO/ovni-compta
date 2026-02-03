@@ -42,6 +42,7 @@ import {
   Filter,
   Receipt,
   Loader2,
+  Landmark,
 } from 'lucide-react';
 import { getTransactions, deleteTransaction } from '@/lib/actions/transactions';
 import { toast } from 'sonner';
@@ -67,6 +68,7 @@ const getCategoryLabel = (value: string): string => {
 
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [filterArtiste, setFilterArtiste] = useState<string>('all');
   const [filterProjet, setFilterProjet] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +99,7 @@ export default function TransactionsPage() {
   // Reset display count when filters change
   useEffect(() => {
     setDisplayCount(ITEMS_PER_PAGE);
-  }, [searchTerm, filterArtiste, filterProjet]);
+  }, [searchTerm, filterType, filterArtiste, filterProjet]);
 
   // Load more function
   const loadMore = useCallback(() => {
@@ -149,11 +151,16 @@ export default function TransactionsPage() {
     const matchesSearch = tx.description
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
+    const matchesType =
+      filterType === 'all' ||
+      (filterType === 'asbl' && !tx.artiste_id && !tx.projet_id) ||
+      (filterType === 'artiste' && tx.artiste_id) ||
+      (filterType === 'projet' && tx.projet_id);
     const matchesArtiste =
       filterArtiste === 'all' || tx.artiste_id === filterArtiste;
     const matchesProjet =
       filterProjet === 'all' || tx.projet_id === filterProjet;
-    return matchesSearch && matchesArtiste && matchesProjet;
+    return matchesSearch && matchesType && matchesArtiste && matchesProjet;
   });
 
   // Lazy loading: only display a subset of transactions
@@ -218,7 +225,18 @@ export default function TransactionsPage() {
                 className="pl-9"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  <SelectItem value="asbl">ASBL</SelectItem>
+                  <SelectItem value="artiste">Artistes</SelectItem>
+                  <SelectItem value="projet">Projets</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={filterArtiste} onValueChange={setFilterArtiste}>
                 <SelectTrigger>
                   <SelectValue placeholder="Artiste" />
@@ -291,12 +309,12 @@ export default function TransactionsPage() {
           <CardContent className="p-0">
             <EmptyState
               title="Aucune transaction trouvée"
-              description={searchTerm || filterArtiste !== 'all' || filterProjet !== 'all'
+              description={searchTerm || filterType !== 'all' || filterArtiste !== 'all' || filterProjet !== 'all'
                 ? "Essayez de modifier vos filtres pour trouver ce que vous cherchez."
-                : "Commencez par ajouter votre premi\u00e8re transaction pour suivre vos finances."}
+                : "Commencez par ajouter votre première transaction pour suivre vos finances."}
               illustration="document"
-              actionLabel={!searchTerm && filterArtiste === 'all' && filterProjet === 'all' ? "Nouvelle transaction" : undefined}
-              actionHref={!searchTerm && filterArtiste === 'all' && filterProjet === 'all' ? "#" : undefined}
+              actionLabel={!searchTerm && filterType === 'all' && filterArtiste === 'all' && filterProjet === 'all' ? "Nouvelle transaction" : undefined}
+              actionHref={!searchTerm && filterType === 'all' && filterArtiste === 'all' && filterProjet === 'all' ? "#" : undefined}
             />
           </CardContent>
         </Card>
@@ -338,6 +356,14 @@ export default function TransactionsPage() {
                         <Link href={`/dashboard/projets/${tx.projet_id}`}>
                           <Badge variant="secondary" className="text-xs cursor-pointer hover:opacity-80 transition-opacity">
                             {tx.projet_code}
+                          </Badge>
+                        </Link>
+                      )}
+                      {!tx.artiste_id && !tx.projet_id && (
+                        <Link href="/dashboard/caisse-ovni">
+                          <Badge variant="outline" className="text-xs cursor-pointer hover:opacity-80 transition-opacity text-slate-600 border-slate-300">
+                            <Landmark className="h-3 w-3 mr-1" />
+                            ASBL
                           </Badge>
                         </Link>
                       )}
@@ -445,8 +471,7 @@ export default function TransactionsPage() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Artiste</TableHead>
-                  <TableHead>Projet</TableHead>
+                  <TableHead>Lié à</TableHead>
                   <TableHead>Catégorie</TableHead>
                   <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="text-right">Débit</TableHead>
@@ -477,19 +502,19 @@ export default function TransactionsPage() {
                             {tx.artiste_nom}
                           </Badge>
                         </Link>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {tx.projet_code && tx.projet_id ? (
+                      ) : tx.projet_code && tx.projet_id ? (
                         <Link href={`/dashboard/projets/${tx.projet_id}`}>
                           <Badge variant="secondary" className="cursor-pointer hover:opacity-80 transition-opacity">
                             {tx.projet_code}
                           </Badge>
                         </Link>
                       ) : (
-                        <span className="text-muted-foreground">-</span>
+                        <Link href="/dashboard/caisse-ovni">
+                          <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity text-slate-600 border-slate-300">
+                            <Landmark className="h-3 w-3 mr-1" />
+                            ASBL
+                          </Badge>
+                        </Link>
                       )}
                     </TableCell>
                     <TableCell>

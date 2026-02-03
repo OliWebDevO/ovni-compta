@@ -14,6 +14,8 @@ import {
   Shield,
   X,
   BookOpen,
+  FileText,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -63,10 +65,22 @@ const moreNavItems = [
     gradient: 'from-fuchsia-500 to-purple-500',
   },
   {
+    title: 'Caisse OVNI',
+    url: '/dashboard/caisse-ovni',
+    icon: Landmark,
+    gradient: 'from-slate-600 to-zinc-600',
+  },
+  {
     title: 'Bilans',
     url: '/dashboard/bilans',
     icon: BarChart3,
     gradient: 'from-amber-500 to-orange-500',
+  },
+  {
+    title: 'Factures',
+    url: '/dashboard/factures',
+    icon: FileText,
+    gradient: 'from-teal-500 to-cyan-500',
   },
   {
     title: 'Ressources',

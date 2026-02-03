@@ -18,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Landmark } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { CATEGORIES } from '@/types';
 
@@ -117,6 +117,15 @@ export function TransactionList({
                       <Link href={`/dashboard/projets/${tx.projet_id}`}>
                         <Badge variant="secondary" className="text-xs cursor-pointer hover:opacity-80 transition-opacity">
                           {tx.projet_code}
+                        </Badge>
+                      </Link>
+                    )}
+                    {/* Show ASBL badge when no artiste and no projet */}
+                    {(showArtiste || showProjet) && !tx.artiste_id && !tx.projet_id && (
+                      <Link href="/dashboard/caisse-ovni">
+                        <Badge variant="outline" className="text-xs cursor-pointer hover:opacity-80 transition-opacity text-slate-600 border-slate-300">
+                          <Landmark className="h-3 w-3 mr-1" />
+                          ASBL
                         </Badge>
                       </Link>
                     )}
@@ -236,6 +245,13 @@ export function TransactionList({
                             {tx.artiste_nom}
                           </Badge>
                         </Link>
+                      ) : !tx.projet_id ? (
+                        <Link href="/dashboard/caisse-ovni">
+                          <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity text-slate-600 border-slate-300">
+                            <Landmark className="h-3 w-3 mr-1" />
+                            ASBL
+                          </Badge>
+                        </Link>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -247,6 +263,13 @@ export function TransactionList({
                         <Link href={`/dashboard/projets/${tx.projet_id}`}>
                           <Badge variant="secondary" className="cursor-pointer hover:opacity-80 transition-opacity">
                             {tx.projet_code}
+                          </Badge>
+                        </Link>
+                      ) : !tx.artiste_id ? (
+                        <Link href="/dashboard/caisse-ovni">
+                          <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity text-slate-600 border-slate-300">
+                            <Landmark className="h-3 w-3 mr-1" />
+                            ASBL
                           </Badge>
                         </Link>
                       ) : (

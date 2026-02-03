@@ -237,6 +237,130 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Section header - Activité récente */}
+      <SectionHeader
+        icon={<IllustrationDocuments size={60} />}
+        title="Activité récente"
+        description="Dernières transactions et accès rapides"
+      />
+
+      {/* Recent Activity & Quick Links */}
+      <div className="space-y-4">
+        <Card className="card-hover bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
+          <CardHeader>
+            <CardTitle>Transactions récentes</CardTitle>
+            <CardDescription>
+              Les 5 dernières transactions enregistrées
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recentTransactions.map((tx) => (
+                <Link
+                  key={tx.id}
+                  href="/dashboard/transactions"
+                  className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {tx.description}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(tx.date)}
+                      {tx.artiste_nom && ` • ${tx.artiste_nom}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      {tx.credit > 0 && (
+                        <span className={`${TEXT_COLORS.credit} font-medium`}>
+                          +{formatCurrency(tx.credit)}
+                        </span>
+                      )}
+                      {tx.debit > 0 && (
+                        <span className={`${TEXT_COLORS.debit} font-medium`}>
+                          -{formatCurrency(tx.debit)}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <Button variant="outline" className="w-full mt-4" asChild>
+              <Link href="/dashboard/transactions">Voir toutes les transactions</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover bg-gradient-to-br from-orange-50 to-amber-50 border-orange-100">
+          <CardHeader>
+            <CardTitle className="text-orange-900">Accès rapides</CardTitle>
+            <CardDescription>Navigation vers les sections principales</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Link
+              href="/dashboard/artistes"
+              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-blue-100 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Artistes</p>
+                  <p className="text-sm text-muted-foreground">
+                    {artistes.length} artiste{artistes.length > 1 ? 's' : ''} enregistré{artistes.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{artistesActifs} actifs</Badge>
+            </Link>
+
+            <Link
+              href="/dashboard/projets"
+              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-fuchsia-50 hover:border-purple-200 transition-all duration-200 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-100 to-fuchsia-100 text-purple-600">
+                  <FolderKanban className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Projets</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projets.length} projet{projets.length > 1 ? 's' : ''} enregistré{projets.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{projetsActifs} actifs</Badge>
+            </Link>
+
+            <Link
+              href="/dashboard/bilans"
+              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-amber-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 hover:border-amber-200 transition-all duration-200 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 text-amber-600">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Bilans</p>
+                  <p className="text-sm text-muted-foreground">
+                    {bilansAnnuels.length} année{bilansAnnuels.length > 1 ? 's' : ''} de données
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                {bilansAnnuels.length > 0
+                  ? `${bilansAnnuels[bilansAnnuels.length - 1]?.annee}-${bilansAnnuels[0]?.annee}`
+                  : '-'}
+              </Badge>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Section header - Graphiques */}
       <SectionHeader
         icon={<IllustrationChart size={60} />}
@@ -315,130 +439,6 @@ export default function DashboardPage() {
                 />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Section header - Activité récente */}
-      <SectionHeader
-        icon={<IllustrationDocuments size={60} />}
-        title="Activité récente"
-        description="Dernières transactions et accès rapides"
-      />
-
-      {/* Recent Activity & Quick Links */}
-      <div className="grid gap-4 grid-cols-1 xl:grid-cols-5">
-        <Card className="xl:col-span-3 card-hover bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
-          <CardHeader>
-            <CardTitle>Transactions récentes</CardTitle>
-            <CardDescription>
-              Les 5 dernières transactions enregistrées
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {recentTransactions.map((tx) => (
-                <Link
-                  key={tx.id}
-                  href="/dashboard/transactions"
-                  className="flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {tx.description}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(tx.date)}
-                      {tx.artiste_nom && ` • ${tx.artiste_nom}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      {tx.credit > 0 && (
-                        <span className={`${TEXT_COLORS.credit} font-medium`}>
-                          +{formatCurrency(tx.credit)}
-                        </span>
-                      )}
-                      {tx.debit > 0 && (
-                        <span className={`${TEXT_COLORS.debit} font-medium`}>
-                          -{formatCurrency(tx.debit)}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <Button variant="outline" className="w-full mt-4" asChild>
-              <Link href="/dashboard/transactions">Voir toutes les transactions</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-2 card-hover bg-gradient-to-br from-orange-50 to-amber-50 border-orange-100">
-          <CardHeader>
-            <CardTitle className="text-orange-900">Accès rapides</CardTitle>
-            <CardDescription>Navigation vers les sections principales</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Link
-              href="/dashboard/artistes"
-              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-blue-100 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600">
-                  <Users className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="font-medium">Artistes</p>
-                  <p className="text-sm text-muted-foreground">
-                    {artistes.length} artiste{artistes.length > 1 ? 's' : ''} enregistré{artistes.length > 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{artistesActifs} actifs</Badge>
-            </Link>
-
-            <Link
-              href="/dashboard/projets"
-              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-fuchsia-50 hover:border-purple-200 transition-all duration-200 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-100 to-fuchsia-100 text-purple-600">
-                  <FolderKanban className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="font-medium">Projets</p>
-                  <p className="text-sm text-muted-foreground">
-                    {projets.length} projet{projets.length > 1 ? 's' : ''} enregistré{projets.length > 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{projetsActifs} actifs</Badge>
-            </Link>
-
-            <Link
-              href="/dashboard/bilans"
-              className="flex items-center justify-between p-3 rounded-lg bg-white/60 border border-amber-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 hover:border-amber-200 transition-all duration-200 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 text-amber-600">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="font-medium">Bilans</p>
-                  <p className="text-sm text-muted-foreground">
-                    {bilansAnnuels.length} année{bilansAnnuels.length > 1 ? 's' : ''} de données
-                  </p>
-                </div>
-              </div>
-              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
-                {bilansAnnuels.length > 0
-                  ? `${bilansAnnuels[bilansAnnuels.length - 1]?.annee}-${bilansAnnuels[0]?.annee}`
-                  : '-'}
-              </Badge>
-            </Link>
           </CardContent>
         </Card>
       </div>

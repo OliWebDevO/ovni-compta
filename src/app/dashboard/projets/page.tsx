@@ -431,18 +431,26 @@ export default function ProjetsPage() {
                   </div>
                 )}
 
-                <div className="flex justify-between pt-2 border-t">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Crédits</p>
-                    <p className="font-medium text-emerald-600">
-                      {formatCurrency(projet.total_credit || 0)}
+                <div className="pt-2 border-t space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">Solde</p>
+                    <p className={`font-semibold ${(projet.solde || 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {formatCurrency(projet.solde || 0)}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Débits</p>
-                    <p className="font-medium text-rose-500">
-                      {formatCurrency(projet.total_debit || 0)}
-                    </p>
+                  <div className="flex justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Crédits</p>
+                      <p className="font-medium text-emerald-600">
+                        {formatCurrency(projet.total_credit || 0)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Débits</p>
+                      <p className="font-medium text-rose-500">
+                        {formatCurrency(projet.total_debit || 0)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -15,7 +15,6 @@ import { TransactionList } from '@/components/transactions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,9 +28,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ArrowLeft,
-  Mail,
-  Phone,
-  Calendar,
   TrendingUp,
   TrendingDown,
   Receipt,
@@ -45,8 +41,6 @@ import { toast } from 'sonner';
 import type { ArtisteWithStats } from '@/types/database';
 import {
   formatCurrency,
-  formatDate,
-  formatDateLong,
   getInitials,
   getSoldeColor,
 } from '@/lib/utils';
@@ -362,87 +356,25 @@ export default function ArtisteDetailPage({
         </Card>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-        {/* Info Card */}
-        <Card className="card-hover bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
-          <CardHeader>
-            <CardTitle>Informations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {artiste.email && (
-              <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{artiste.email}</span>
-              </div>
-            )}
-            {artiste.telephone && (
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{artiste.telephone}</span>
-              </div>
-            )}
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Créé le</p>
-                <p>{formatDateLong(artiste.created_at)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant={artiste.actif ? 'default' : 'secondary'}>
-                {artiste.actif ? 'Actif' : 'Inactif'}
-              </Badge>
-            </div>
-            {artiste.notes && (
-              <>
-                <Separator />
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm">{artiste.notes}</p>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Chart */}
-        <Card className="lg:col-span-2 card-hover bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-100">
-          <CardHeader>
-            <CardTitle>Évolution (6 derniers mois)</CardTitle>
-            <CardDescription>
-              Crédits et débits mensuels pour cet artiste
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mois" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Area
-                  type="monotone"
-                  dataKey="credit"
-                  stroke="#4ade80"
-                  fill="#86efac"
-                  fillOpacity={0.6}
-                  name="Crédits"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="debit"
-                  stroke="#fb7185"
-                  fill="#fda4af"
-                  fillOpacity={0.6}
-                  name="Débits"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* Historique des transactions */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Historique des transactions</h2>
+        <p className="text-sm text-muted-foreground">
+          {artisteTransactions.length} transaction(s)
+        </p>
+        <TransactionList
+          transactions={artisteTransactions}
+          showProjet
+          showCategorie
+          showActions
+          canEdit={canEdit}
+          returnUrl={`/dashboard/artistes/${id}`}
+          onDelete={handleDeleteTransaction}
+          emptyMessage="Aucune transaction pour cet artiste"
+        />
       </div>
 
+      {/* Graphiques */}
       {/* Category Distribution Charts */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         {/* Dépenses par catégorie */}
@@ -554,23 +486,41 @@ export default function ArtisteDetailPage({
         </Card>
       </div>
 
-      {/* Historique des transactions */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Historique des transactions</h2>
-        <p className="text-sm text-muted-foreground">
-          {artisteTransactions.length} transaction(s)
-        </p>
-        <TransactionList
-          transactions={artisteTransactions}
-          showProjet
-          showCategorie
-          showActions
-          canEdit={canEdit}
-          returnUrl={`/dashboard/artistes/${id}`}
-          onDelete={handleDeleteTransaction}
-          emptyMessage="Aucune transaction pour cet artiste"
-        />
-      </div>
+      {/* Evolution Chart */}
+      <Card className="card-hover bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-100">
+        <CardHeader>
+          <CardTitle>Évolution (6 derniers mois)</CardTitle>
+          <CardDescription>
+            Crédits et débits mensuels pour cet artiste
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="mois" />
+              <YAxis />
+              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+              <Area
+                type="monotone"
+                dataKey="credit"
+                stroke="#4ade80"
+                fill="#86efac"
+                fillOpacity={0.6}
+                name="Crédits"
+              />
+              <Area
+                type="monotone"
+                dataKey="debit"
+                stroke="#fb7185"
+                fill="#fda4af"
+                fillOpacity={0.6}
+                name="Débits"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
