@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { login } from '@/lib/auth/actions';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,15 @@ function LoginForm() {
     <>
       {/* Logo / Titre */}
       <div className="mb-8 text-center">
+        <div className="mx-auto mb-4 h-20 w-20 rounded-full overflow-hidden shadow-lg shadow-violet-200">
+          <Image
+            src="/logo-ovni.jpeg"
+            alt="O.V.N.I Logo"
+            width={80}
+            height={80}
+            className="object-cover"
+          />
+        </div>
         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
           O.V.N.I
           <span className="ml-2 text-muted-foreground font-normal text-xl">

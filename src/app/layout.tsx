@@ -12,6 +12,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "O.V.N.I Compta - Gestion Comptable",
   description: "Application de gestion comptable pour l'ASBL O.V.N.I",
+  icons: {
+    icon: "/logo-ovni.jpeg",
+    apple: "/logo-ovni.jpeg",
+  },
 };
 
 export default function RootLayout({

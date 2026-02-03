@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -175,14 +176,20 @@ export function AppSidebar({ userRole, artisteNom }: AppSidebarProps) {
 
   return (
     <Sidebar className="border-r-0">
-      {/* Header avec logo moderne */}
+      {/* Header avec logo */}
       <SidebarHeader className="p-4 pb-2">
         <Link
           href="/dashboard"
           className="flex items-center gap-3 px-2 py-3 rounded-xl bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02]"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm font-bold text-lg">
-            O
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white overflow-hidden">
+            <Image
+              src="/logo-ovni.jpeg"
+              alt="O.V.N.I Logo"
+              width={40}
+              height={40}
+              className="object-cover"
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-lg tracking-tight">O.V.N.I</span>
