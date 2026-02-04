@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { getRessourceById, getRessources } from '@/lib/actions/ressources';
 import type { Ressource, RessourceCategorie } from '@/types';
 import Link from 'next/link';
+import { SafeHtml } from '@/components/SafeHtml';
 
 const categoryIcons: Record<RessourceCategorie, React.ReactNode> = {
   guide: <BookOpen className="h-8 w-8" />,
@@ -312,10 +313,7 @@ function parseContent(content: string): ContentBlock[] {
   return blocks;
 }
 
-// Format text with bold markers
-function formatText(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>');
-}
+// Format text is now handled by SafeHtml component for XSS protection
 
 // Get icon for section based on keywords
 function getSectionIcon(title: string): typeof BookOpen {
@@ -419,9 +417,10 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
                         {boldMatch[2] && <span> {boldMatch[2]}</span>}
                       </span>
                     ) : (
-                      <span
+                      <SafeHtml
+                        html={item}
                         className="text-gray-700 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: formatText(item) }}
+                        format
                       />
                     )}
                   </li>
@@ -452,9 +451,10 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
                     <div className="flex-1 pt-1">
                       <span className="text-gray-900 font-medium">{displayText}</span>
                       {remainingText && (
-                        <span
+                        <SafeHtml
+                          html={' ' + remainingText}
                           className="text-gray-600"
-                          dangerouslySetInnerHTML={{ __html: ' ' + formatText(remainingText) }}
+                          format
                         />
                       )}
                     </div>
@@ -504,7 +504,7 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
           if (lowerText.includes('attention') || lowerText.includes('vigilant')) {
             return (
               <CalloutBox key={idx} type="warning">
-                <span dangerouslySetInnerHTML={{ __html: formatText(text) }} />
+                <SafeHtml html={text} format />
               </CalloutBox>
             );
           }
@@ -512,7 +512,7 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
           if (lowerText.includes('conseil') || lowerText.includes('astuce') || lowerText.includes('recommand')) {
             return (
               <CalloutBox key={idx} type="tip">
-                <span dangerouslySetInnerHTML={{ __html: formatText(text) }} />
+                <SafeHtml html={text} format />
               </CalloutBox>
             );
           }
@@ -520,7 +520,7 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
           if (lowerText.includes('important') || lowerText.includes('essentiel') || lowerText.includes('crucial')) {
             return (
               <CalloutBox key={idx} type="important">
-                <span dangerouslySetInnerHTML={{ __html: formatText(text) }} />
+                <SafeHtml html={text} format />
               </CalloutBox>
             );
           }
@@ -528,7 +528,7 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
           if (lowerText.includes('note') || lowerText.includes('à savoir') || lowerText.includes('bon à savoir')) {
             return (
               <CalloutBox key={idx} type="info">
-                <span dangerouslySetInnerHTML={{ __html: formatText(text) }} />
+                <SafeHtml html={text} format />
               </CalloutBox>
             );
           }
@@ -537,17 +537,19 @@ function RenderContent({ content, colors }: { content: string; colors: typeof ca
           if (text.startsWith('"') || text.startsWith('«')) {
             return (
               <HighlightBox key={idx}>
-                <span dangerouslySetInnerHTML={{ __html: formatText(text) }} />
+                <SafeHtml html={text} format />
               </HighlightBox>
             );
           }
 
           // Regular paragraph
           return (
-            <p
+            <SafeHtml
               key={idx}
+              html={text}
+              as="p"
               className="text-gray-700 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: formatText(text) }}
+              format
             />
           );
         }

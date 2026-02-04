@@ -2,6 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ProjetWithStats, Projet } from '@/types/database';
+import {
+  createProjetSchema,
+  updateProjetSchema,
+  uuidSchema,
+  validateInput,
+} from '@/lib/schemas';
 
 export async function getProjets(): Promise<{
   data: ProjetWithStats[] | null;
@@ -25,12 +31,18 @@ export async function getProjetById(id: string): Promise<{
   data: ProjetWithStats | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('projets_with_stats')
     .select('*')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (error) {
@@ -53,12 +65,18 @@ export async function getProjetTransactions(projetId: string): Promise<{
   }> | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, projetId);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('transactions')
     .select('id, date, description, credit, debit, categorie, artiste_id, artistes ( nom )')
-    .eq('projet_id', projetId)
+    .eq('projet_id', idValidation.data)
     .order('date', { ascending: false });
 
   if (error) {
@@ -89,12 +107,18 @@ export async function getProjetArtistes(projetId: string): Promise<{
   }> | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, projetId);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('projet_artistes')
     .select('id, artiste_id, role_projet, artistes ( nom, couleur )')
-    .eq('projet_id', projetId);
+    .eq('projet_id', idValidation.data);
 
   if (error) {
     return { data: null, error: error.message };
@@ -122,17 +146,23 @@ export async function createProjet(input: {
   date_debut?: string | null;
   date_fin?: string | null;
 }): Promise<{ data: Projet | null; error: string | null }> {
+  // Validate input
+  const validation = validateInput(createProjetSchema, input);
+  if (!validation.success) {
+    return { data: null, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('projets')
     .insert({
-      nom: input.nom,
-      code: input.code,
-      description: input.description || null,
-      budget: input.budget || null,
-      date_debut: input.date_debut || null,
-      date_fin: input.date_fin || null,
+      nom: validation.data.nom,
+      code: validation.data.code,
+      description: validation.data.description || null,
+      budget: validation.data.budget || null,
+      date_debut: validation.data.date_debut || null,
+      date_fin: validation.data.date_fin || null,
       statut: 'actif',
     })
     .select()
@@ -157,12 +187,24 @@ export async function updateProjet(
     statut?: 'actif' | 'termine' | 'annule';
   }
 ): Promise<{ success: boolean; error: string | null }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
+  // Validate updates
+  const validation = validateInput(updateProjetSchema, updates);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('projets')
-    .update(updates)
-    .eq('id', id);
+    .update(validation.data)
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };
@@ -175,6 +217,12 @@ export async function deleteProjet(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   // Vérifier que l'utilisateur est admin
@@ -200,7 +248,7 @@ export async function deleteProjet(id: string): Promise<{
   const { error } = await supabase
     .from('projets')
     .delete()
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };

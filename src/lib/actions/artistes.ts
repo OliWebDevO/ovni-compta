@@ -2,6 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ArtisteWithStats, Artiste } from '@/types/database';
+import {
+  createArtisteSchema,
+  updateArtisteSchema,
+  uuidSchema,
+  validateInput,
+} from '@/lib/schemas';
 
 export async function getArtistes(): Promise<{
   data: ArtisteWithStats[] | null;
@@ -25,12 +31,18 @@ export async function getArtisteById(id: string): Promise<{
   data: ArtisteWithStats | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('artistes_with_stats')
     .select('*')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (error) {
@@ -53,12 +65,18 @@ export async function getArtisteTransactions(artisteId: string): Promise<{
   }> | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, artisteId);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('transactions')
     .select('id, date, description, credit, debit, categorie, projet_id, projets ( code )')
-    .eq('artiste_id', artisteId)
+    .eq('artiste_id', idValidation.data)
     .order('date', { ascending: false });
 
   if (error) {
@@ -89,12 +107,18 @@ export async function getArtisteProjets(artisteId: string): Promise<{
   }> | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, artisteId);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('projet_artistes')
     .select('id, projet_id, role_projet, projets ( nom, code )')
-    .eq('artiste_id', artisteId);
+    .eq('artiste_id', idValidation.data);
 
   if (error) {
     return { data: null, error: error.message };
@@ -121,16 +145,22 @@ export async function createArtiste(input: {
   notes?: string | null;
   couleur?: string | null;
 }): Promise<{ data: Artiste | null; error: string | null }> {
+  // Validate input
+  const validation = validateInput(createArtisteSchema, input);
+  if (!validation.success) {
+    return { data: null, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('artistes')
     .insert({
-      nom: input.nom,
-      email: input.email || null,
-      telephone: input.telephone || null,
-      notes: input.notes || null,
-      couleur: input.couleur || null,
+      nom: validation.data.nom,
+      email: validation.data.email || null,
+      telephone: validation.data.telephone || null,
+      notes: validation.data.notes || null,
+      couleur: validation.data.couleur || null,
       actif: true,
     })
     .select()
@@ -154,12 +184,24 @@ export async function updateArtiste(
     actif?: boolean;
   }
 ): Promise<{ success: boolean; error: string | null }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
+  // Validate updates
+  const validation = validateInput(updateArtisteSchema, updates);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('artistes')
-    .update(updates)
-    .eq('id', id);
+    .update(validation.data)
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };
@@ -172,6 +214,12 @@ export async function deleteArtiste(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   // Vérifier que l'utilisateur est admin
@@ -197,7 +245,7 @@ export async function deleteArtiste(id: string): Promise<{
   const { error } = await supabase
     .from('artistes')
     .delete()
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };

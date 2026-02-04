@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { updateProfileSchema, validateInput } from '@/lib/schemas';
 
 export interface CurrentUser {
   id: string;
@@ -61,6 +62,12 @@ export async function updateProfile(updates: {
   couleur?: string;
   avatar?: string | null;
 }): Promise<{ success: boolean; error: string | null }> {
+  // Validate input
+  const validation = validateInput(updateProfileSchema, updates);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -73,7 +80,7 @@ export async function updateProfile(updates: {
 
   const { error } = await supabase
     .from('profiles')
-    .update(updates)
+    .update(validation.data)
     .eq('id', user.id);
 
   if (error) {

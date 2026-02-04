@@ -1,6 +1,12 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import {
+  createInvitationSchema,
+  invitationCodeSchema,
+  uuidSchema,
+  validateInput,
+} from '@/lib/schemas';
 
 // =============================================
 // Types
@@ -45,6 +51,12 @@ interface ArtisteOption {
 }
 
 // =============================================
+// Constants for timing attack prevention
+// =============================================
+
+const MIN_RESPONSE_TIME_MS = 200;
+
+// =============================================
 // Helpers
 // =============================================
 
@@ -68,6 +80,16 @@ Pour créer votre compte, rendez-vous sur :
 ${registerUrl}
 
 À bientôt !`;
+}
+
+/**
+ * Adds a constant delay to prevent timing attacks
+ */
+async function ensureMinResponseTime(startTime: number): Promise<void> {
+  const elapsed = Date.now() - startTime;
+  if (elapsed < MIN_RESPONSE_TIME_MS) {
+    await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_TIME_MS - elapsed));
+  }
 }
 
 // =============================================
@@ -132,6 +154,12 @@ export async function getArtistes(): Promise<{
 }
 
 export async function createInvitation(input: CreateInvitationInput): Promise<CreateInvitationResult> {
+  // Validate input
+  const validation = validateInput(createInvitationSchema, input);
+  if (!validation.success) {
+    return { success: false, code: null, message: null, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   // Récupérer l'utilisateur connecté
@@ -169,13 +197,13 @@ export async function createInvitation(input: CreateInvitationInput): Promise<Cr
   const { error: insertError } = await supabase
     .from('allowed_emails')
     .insert({
-      email: input.email,
+      email: validation.data.email,
       code,
-      role: input.role,
-      artiste_id: input.artiste_id,
-      can_create_artiste: input.can_create_artiste,
+      role: validation.data.role,
+      artiste_id: validation.data.artiste_id,
+      can_create_artiste: validation.data.can_create_artiste,
       invited_by: user.id,
-      notes: input.notes,
+      notes: validation.data.notes,
     });
 
   if (insertError) {
@@ -202,12 +230,18 @@ export async function deleteInvitation(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('allowed_emails')
     .delete()
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .eq('used', false);
 
   if (error) {
@@ -226,22 +260,31 @@ export async function getInvitationByCode(code: string): Promise<{
   } | null;
   error: string | null;
 }> {
+  const startTime = Date.now();
+
+  // Validate and normalize code
+  const codeValidation = validateInput(invitationCodeSchema, code);
+  if (!codeValidation.success) {
+    await ensureMinResponseTime(startTime);
+    // Generic error message to prevent enumeration
+    return { data: null, error: 'Code d\'invitation invalide.' };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('allowed_emails')
     .select('email, artiste_id, can_create_artiste, artistes ( nom )')
-    .eq('code', code.toUpperCase())
+    .eq('code', codeValidation.data)
     .eq('used', false)
     .single();
 
-  if (error) {
-    console.error('Erreur getInvitationByCode:', error);
-    return { data: null, error: 'Code invalide ou déjà utilisé.' };
-  }
+  // Always wait minimum time to prevent timing attacks
+  await ensureMinResponseTime(startTime);
 
-  if (!data) {
-    return { data: null, error: 'Code invalide ou déjà utilisé.' };
+  // Generic error message for both "not found" and "already used"
+  if (error || !data) {
+    return { data: null, error: 'Code d\'invitation invalide.' };
   }
 
   return {
@@ -260,12 +303,18 @@ export async function getInvitationMessage(id: string): Promise<{
   message: string | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { code: null, message: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('allowed_emails')
     .select('code')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (error || !data) {

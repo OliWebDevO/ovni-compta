@@ -2,6 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { TransactionCategorie, TransactionWithRelations } from '@/types/database';
+import {
+  createTransactionSchema,
+  updateTransactionSchema,
+  uuidSchema,
+  validateInput,
+} from '@/lib/schemas';
+import { z } from 'zod';
 
 export async function getTransactions(): Promise<{
   data: TransactionWithRelations[] | null;
@@ -43,13 +50,19 @@ export async function getRecentTransactions(limit: number = 5): Promise<{
   data: TransactionWithRelations[] | null;
   error: string | null;
 }> {
+  // Validate limit
+  const limitValidation = validateInput(z.number().int().min(1).max(100), limit);
+  if (!limitValidation.success) {
+    return { data: null, error: limitValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('transactions')
     .select('*, artistes ( nom, couleur ), projets ( code, nom )')
     .order('date', { ascending: false })
-    .limit(limit);
+    .limit(limitValidation.data);
 
   if (error) {
     return { data: null, error: error.message };
@@ -113,12 +126,18 @@ export async function getTransaction(id: string): Promise<{
   data: TransactionWithRelations | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('transactions')
     .select('*, artistes ( nom, couleur ), projets ( code, nom )')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (error) {
@@ -155,6 +174,12 @@ export async function createTransaction(input: {
   projet_id: string | null;
   categorie: TransactionCategorie | null;
 }): Promise<{ data: { id: string } | null; error: string | null }> {
+  // Validate input
+  const validation = validateInput(createTransactionSchema, input);
+  if (!validation.success) {
+    return { data: null, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -164,7 +189,13 @@ export async function createTransaction(input: {
   const { data, error } = await supabase
     .from('transactions')
     .insert({
-      ...input,
+      date: validation.data.date,
+      description: validation.data.description,
+      credit: validation.data.credit,
+      debit: validation.data.debit,
+      artiste_id: validation.data.artiste_id,
+      projet_id: validation.data.projet_id,
+      categorie: validation.data.categorie,
       created_by: user?.id || null,
     })
     .select('id')
@@ -189,12 +220,24 @@ export async function updateTransaction(
     categorie?: TransactionCategorie | null;
   }
 ): Promise<{ success: boolean; error: string | null }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
+  // Validate updates
+  const validation = validateInput(updateTransactionSchema, updates);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('transactions')
-    .update(updates)
-    .eq('id', id);
+    .update(validation.data)
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };
@@ -207,12 +250,18 @@ export async function deleteTransaction(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase
     .from('transactions')
     .delete()
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };
