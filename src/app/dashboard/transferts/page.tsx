@@ -66,6 +66,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 
 export default function TransfertsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterArtiste, setFilterArtiste] = useState<string>('all');
+  const [filterProjet, setFilterProjet] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTransfert, setEditingTransfert] = useState<TransfertWithRelations | null>(null);
@@ -127,11 +130,28 @@ export default function TransfertsPage() {
   // Filtrage
   const filteredTransferts = transferts.filter((tf) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch =
       tf.description.toLowerCase().includes(searchLower) ||
       tf.source_nom?.toLowerCase().includes(searchLower) ||
-      tf.destination_nom?.toLowerCase().includes(searchLower)
-    );
+      tf.destination_nom?.toLowerCase().includes(searchLower);
+
+    const matchesType =
+      filterType === 'all' ||
+      (filterType === 'asbl' && (tf.source_type === 'asbl' || tf.destination_type === 'asbl')) ||
+      (filterType === 'artiste' && (tf.source_type === 'artiste' || tf.destination_type === 'artiste')) ||
+      (filterType === 'projet' && (tf.source_type === 'projet' || tf.destination_type === 'projet'));
+
+    const matchesArtiste =
+      filterArtiste === 'all' ||
+      tf.source_artiste_id === filterArtiste ||
+      tf.destination_artiste_id === filterArtiste;
+
+    const matchesProjet =
+      filterProjet === 'all' ||
+      tf.source_projet_id === filterProjet ||
+      tf.destination_projet_id === filterProjet;
+
+    return matchesSearch && matchesType && matchesArtiste && matchesProjet;
   });
 
   // Calculs
@@ -882,14 +902,55 @@ export default function TransfertsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un transfert..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un transfert..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-[140px]">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  <SelectItem value="asbl">ASBL</SelectItem>
+                  <SelectItem value="artiste">Artistes</SelectItem>
+                  <SelectItem value="projet">Projets</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterArtiste} onValueChange={setFilterArtiste}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Artiste" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les artistes</SelectItem>
+                  {artistes.map((artiste) => (
+                    <SelectItem key={artiste.id} value={artiste.id}>
+                      {artiste.nom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterProjet} onValueChange={setFilterProjet}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Projet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les projets</SelectItem>
+                  {projets.map((projet) => (
+                    <SelectItem key={projet.id} value={projet.id}>
+                      {projet.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -908,8 +969,8 @@ export default function TransfertsPage() {
             <EmptyState
               title="Aucun transfert trouve"
               description={
-                searchTerm
-                  ? 'Essayez de modifier votre recherche.'
+                searchTerm || filterType !== 'all' || filterArtiste !== 'all' || filterProjet !== 'all'
+                  ? 'Essayez de modifier vos filtres pour trouver ce que vous cherchez.'
                   : 'Commencez par effectuer votre premier transfert interne.'
               }
               illustration="empty"

@@ -225,7 +225,7 @@ export default function TransactionsPage() {
                 className="pl-9"
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-[140px]">
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Type" />
