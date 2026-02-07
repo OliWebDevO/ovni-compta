@@ -18,9 +18,16 @@ import {
 } from '@/components/ui/card';
 import { LogIn, Loader2 } from 'lucide-react';
 
+const MESSAGE_CODES: Record<string, string> = {
+  signup_success: 'Vérifiez votre email pour confirmer votre inscription.',
+  password_reset: 'Un email de réinitialisation a été envoyé.',
+  session_expired: 'Votre session a expiré. Veuillez vous reconnecter.',
+};
+
 function LoginForm() {
   const searchParams = useSearchParams();
-  const message = searchParams.get('message');
+  const messageCode = searchParams.get('message');
+  const message = messageCode ? MESSAGE_CODES[messageCode] : null;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

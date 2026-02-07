@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -143,6 +143,68 @@ export default function BilansPage() {
     }
   };
 
+  // Prepare monthly data for export
+  const monthlyDataForExport = useMemo(
+    () => bilansMensuels.map((b) => ({
+      mois: MOIS[b.mois - 1],
+      total_credit: b.total_credit,
+      total_debit: b.total_debit,
+      solde: b.solde,
+    })),
+    [bilansMensuels]
+  );
+
+  const currentBilan = useMemo(
+    () => bilansAnnuels.find((b) => b.annee === parseInt(selectedYear)),
+    [bilansAnnuels, selectedYear]
+  );
+
+  const monthlyDataForChart = useMemo(
+    () => bilansMensuels.map((b) => ({
+      mois: MOIS[b.mois - 1].slice(0, 3),
+      credit: b.total_credit,
+      debit: b.total_debit,
+      solde: b.solde,
+    })),
+    [bilansMensuels]
+  );
+
+  const cumulativeData = useMemo(
+    () => bilansMensuels.reduce(
+      (acc, b, i) => {
+        const prev = i > 0 ? acc[i - 1] : { cumulCredit: 0, cumulDebit: 0, cumulSolde: 0 };
+        acc.push({
+          mois: MOIS[b.mois - 1].slice(0, 3),
+          cumulCredit: prev.cumulCredit + b.total_credit,
+          cumulDebit: prev.cumulDebit + b.total_debit,
+          cumulSolde: prev.cumulSolde + b.solde,
+        });
+        return acc;
+      },
+      [] as { mois: string; cumulCredit: number; cumulDebit: number; cumulSolde: number }[]
+    ),
+    [bilansMensuels]
+  );
+
+  // Filtrer les transactions par année sélectionnée
+  const yearTransactions = useMemo(
+    () => transactions.filter((tx) => {
+      const txYear = new Date(tx.date).getFullYear();
+      return txYear === parseInt(selectedYear);
+    }),
+    [transactions, selectedYear]
+  );
+
+  // Totaux mensuels (evite les .reduce() inline dans le JSX)
+  const monthlyTotals = useMemo(
+    () => ({
+      credit: bilansMensuels.reduce((s, b) => s + b.total_credit, 0),
+      debit: bilansMensuels.reduce((s, b) => s + b.total_debit, 0),
+      solde: bilansMensuels.reduce((s, b) => s + b.solde, 0),
+    }),
+    [bilansMensuels]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -150,14 +212,6 @@ export default function BilansPage() {
       </div>
     );
   }
-
-  // Prepare monthly data for export
-  const monthlyDataForExport = bilansMensuels.map((b) => ({
-    mois: MOIS[b.mois - 1],
-    total_credit: b.total_credit,
-    total_debit: b.total_debit,
-    solde: b.solde,
-  }));
 
   // Handle PDF export (print)
   const handlePrintPDF = () => {
@@ -185,37 +239,6 @@ export default function BilansPage() {
     }));
     exportBilanToCSV(annualData, 'bilan_annuel', 'annuel');
   };
-
-  const currentBilan = bilansAnnuels.find(
-    (b) => b.annee === parseInt(selectedYear)
-  );
-
-  const monthlyDataForChart = bilansMensuels.map((b) => ({
-    mois: MOIS[b.mois - 1].slice(0, 3),
-    credit: b.total_credit,
-    debit: b.total_debit,
-    solde: b.solde,
-  }));
-
-  const cumulativeData = bilansMensuels.reduce(
-    (acc, b, i) => {
-      const prev = i > 0 ? acc[i - 1] : { cumulCredit: 0, cumulDebit: 0, cumulSolde: 0 };
-      acc.push({
-        mois: MOIS[b.mois - 1].slice(0, 3),
-        cumulCredit: prev.cumulCredit + b.total_credit,
-        cumulDebit: prev.cumulDebit + b.total_debit,
-        cumulSolde: prev.cumulSolde + b.solde,
-      });
-      return acc;
-    },
-    [] as { mois: string; cumulCredit: number; cumulDebit: number; cumulSolde: number }[]
-  );
-
-  // Filtrer les transactions par année sélectionnée
-  const yearTransactions = transactions.filter((tx) => {
-    const txYear = new Date(tx.date).getFullYear();
-    return txYear === parseInt(selectedYear);
-  });
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -510,23 +533,15 @@ export default function BilansPage() {
                   <TableRow className="font-bold bg-muted/50">
                     <TableCell>TOTAL</TableCell>
                     <TableCell className={`text-right ${TEXT_COLORS.credit}`}>
-                      {formatCurrency(
-                        bilansMensuels.reduce((s, b) => s + b.total_credit, 0)
-                      )}
+                      {formatCurrency(monthlyTotals.credit)}
                     </TableCell>
                     <TableCell className={`text-right ${TEXT_COLORS.debit}`}>
-                      {formatCurrency(
-                        bilansMensuels.reduce((s, b) => s + b.total_debit, 0)
-                      )}
+                      {formatCurrency(monthlyTotals.debit)}
                     </TableCell>
                     <TableCell
-                      className={`text-right ${getSoldeColor(
-                        bilansMensuels.reduce((s, b) => s + b.solde, 0)
-                      )}`}
+                      className={`text-right ${getSoldeColor(monthlyTotals.solde)}`}
                     >
-                      {formatCurrency(
-                        bilansMensuels.reduce((s, b) => s + b.solde, 0)
-                      )}
+                      {formatCurrency(monthlyTotals.solde)}
                     </TableCell>
                   </TableRow>
                 </TableBody>

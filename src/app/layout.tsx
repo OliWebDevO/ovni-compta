@@ -1,11 +1,24 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+const satoshi = localFont({
+  src: [
+    { path: '../../public/fonts/Satoshi-Light.woff2', weight: '300', style: 'normal' },
+    { path: '../../public/fonts/Satoshi-Regular.woff2', weight: '400', style: 'normal' },
+    { path: '../../public/fonts/Satoshi-Medium.woff2', weight: '500', style: 'normal' },
+    { path: '../../public/fonts/Satoshi-Bold.woff2', weight: '700', style: 'normal' },
+    { path: '../../public/fonts/Satoshi-Black.woff2', weight: '900', style: 'normal' },
+  ],
+  variable: "--font-satoshi",
   display: "swap",
 });
 
@@ -25,14 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <head>
-        {/* Satoshi font from Fontshare */}
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={`${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className={`${jetbrainsMono.variable} ${satoshi.variable} font-sans antialiased`}>
         {children}
         <Toaster />
       </body>

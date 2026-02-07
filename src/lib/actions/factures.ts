@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { TypeLiaison, FactureWithRelations } from '@/types/database';
+import { createFactureSchema, typeLiaisonSchema, uuidSchema, validateInput } from '@/lib/schemas';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function getFactures(): Promise<{
   data: FactureWithRelations[] | null;
@@ -47,16 +49,31 @@ export async function getFacturesByType(
   data: FactureWithRelations[] | null;
   error: string | null;
 }> {
+  // Validate type
+  const typeValidation = validateInput(typeLiaisonSchema, type);
+  if (!typeValidation.success) {
+    return { data: null, error: typeValidation.error };
+  }
+
+  // Validate entityId if provided
+  if (entityId) {
+    const idValidation = validateInput(uuidSchema, entityId);
+    if (!idValidation.success) {
+      return { data: null, error: idValidation.error };
+    }
+    entityId = idValidation.data;
+  }
+
   const supabase = await createClient();
 
   let query = supabase
     .from('factures')
     .select('*, artistes ( nom, couleur ), projets ( nom, code )')
-    .eq('type_liaison', type);
+    .eq('type_liaison', typeValidation.data);
 
-  if (type === 'artiste' && entityId) {
+  if (typeValidation.data === 'artiste' && entityId) {
     query = query.eq('artiste_id', entityId);
-  } else if (type === 'projet' && entityId) {
+  } else if (typeValidation.data === 'projet' && entityId) {
     query = query.eq('projet_id', entityId);
   }
 
@@ -98,23 +115,33 @@ export async function createFacture(input: {
   fichier_path: string;
   fichier_size: number | null;
 }): Promise<{ data: { id: string } | null; error: string | null }> {
+  // Validate input
+  const validation = validateInput(createFactureSchema, input);
+  if (!validation.success) {
+    return { data: null, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Rate limit per user
+  const rl = rateLimit(`createFacture:${user?.id}`, 20, 60_000);
+  if (!rl.allowed) return { data: null, error: rl.error };
+
   const { data, error } = await supabase
     .from('factures')
     .insert({
-      date: input.date,
-      description: input.description,
-      type_liaison: input.type_liaison,
-      artiste_id: input.artiste_id,
-      projet_id: input.projet_id,
-      fichier_nom: input.fichier_nom,
-      fichier_path: input.fichier_path,
-      fichier_size: input.fichier_size,
+      date: validation.data.date,
+      description: validation.data.description,
+      type_liaison: validation.data.type_liaison,
+      artiste_id: validation.data.artiste_id,
+      projet_id: validation.data.projet_id,
+      fichier_nom: validation.data.fichier_nom,
+      fichier_path: validation.data.fichier_path,
+      fichier_size: validation.data.fichier_size,
       created_by: user?.id || null,
     })
     .select('id')
@@ -131,13 +158,19 @@ export async function deleteFacture(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   // D'abord récupérer le fichier_path pour pouvoir supprimer le fichier du storage
   const { data: facture, error: fetchError } = await supabase
     .from('factures')
     .select('fichier_path')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (fetchError) {
@@ -160,7 +193,7 @@ export async function deleteFacture(id: string): Promise<{
   const { error } = await supabase
     .from('factures')
     .delete()
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (error) {
     return { success: false, error: error.message };
@@ -173,13 +206,19 @@ export async function getFactureDownloadUrl(id: string): Promise<{
   data: { url: string } | null;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   // Récupérer le fichier_path de la facture
   const { data: facture, error: fetchError } = await supabase
     .from('factures')
     .select('fichier_path, fichier_nom')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (fetchError || !facture) {
@@ -211,9 +250,22 @@ export async function uploadFactureFile(formData: FormData): Promise<{
     return { data: null, error: 'Aucun fichier fourni' };
   }
 
-  // Vérifier que c'est un PDF
+  // Vérifier que c'est un PDF (MIME type + magic bytes)
   if (file.type !== 'application/pdf') {
     return { data: null, error: 'Seuls les fichiers PDF sont acceptés' };
+  }
+
+  // Validate PDF magic bytes (%PDF-)
+  const headerBytes = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  const pdfMagic = [0x25, 0x50, 0x44, 0x46, 0x2D]; // %PDF-
+  const isValidPdf = pdfMagic.every((byte, i) => headerBytes[i] === byte);
+  if (!isValidPdf) {
+    return { data: null, error: 'Le fichier ne semble pas être un PDF valide' };
+  }
+
+  // Limit file size to 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return { data: null, error: 'Le fichier ne doit pas dépasser 10 Mo' };
   }
 
   // Générer un nom de fichier unique

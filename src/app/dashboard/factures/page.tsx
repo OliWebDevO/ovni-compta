@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -247,21 +247,30 @@ export default function FacturesPage() {
   };
 
   // Group factures by entity
-  const facturesAsbl = factures.filter((f) => f.type_liaison === 'asbl');
+  const facturesAsbl = useMemo(
+    () => factures.filter((f) => f.type_liaison === 'asbl'),
+    [factures]
+  );
 
-  const facturesByArtiste = artistes
-    .map((artiste) => ({
-      artiste,
-      factures: factures.filter((f) => f.artiste_id === artiste.id),
-    }))
-    .filter((group) => group.factures.length > 0);
+  const facturesByArtiste = useMemo(
+    () => artistes
+      .map((artiste) => ({
+        artiste,
+        factures: factures.filter((f) => f.artiste_id === artiste.id),
+      }))
+      .filter((group) => group.factures.length > 0),
+    [artistes, factures]
+  );
 
-  const facturesByProjet = projets
-    .map((projet) => ({
-      projet,
-      factures: factures.filter((f) => f.projet_id === projet.id),
-    }))
-    .filter((group) => group.factures.length > 0);
+  const facturesByProjet = useMemo(
+    () => projets
+      .map((projet) => ({
+        projet,
+        factures: factures.filter((f) => f.projet_id === projet.id),
+      }))
+      .filter((group) => group.factures.length > 0),
+    [projets, factures]
+  );
 
   if (isLoading) {
     return (

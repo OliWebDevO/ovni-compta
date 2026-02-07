@@ -7,6 +7,7 @@ import {
   uuidSchema,
   validateInput,
 } from '@/lib/schemas';
+import { rateLimit } from '@/lib/rate-limit';
 
 // =============================================
 // Types
@@ -63,7 +64,7 @@ const MIN_RESPONSE_TIME_MS = 200;
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sans I, O, 0, 1 pour éviter confusion
   let code = '';
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 10; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -261,6 +262,13 @@ export async function getInvitationByCode(code: string): Promise<{
   error: string | null;
 }> {
   const startTime = Date.now();
+
+  // Rate limit code validation (5 attempts per minute)
+  const rl = rateLimit('invitationCode', 5, 60_000);
+  if (!rl.allowed) {
+    await ensureMinResponseTime(startTime);
+    return { data: null, error: 'Trop de tentatives. Veuillez réessayer dans quelques instants.' };
+  }
 
   // Validate and normalize code
   const codeValidation = validateInput(invitationCodeSchema, code);

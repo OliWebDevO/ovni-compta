@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -61,6 +62,7 @@ function useIsMounted() {
 }
 
 export default function ArtistesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [artistes, setArtistes] = useState<ArtisteWithStats[]>([]);
@@ -124,6 +126,23 @@ export default function ArtistesPage() {
     fetchArtistes();
   }, []);
 
+  const filteredArtistes = useMemo(() => artistes.filter((artiste) => {
+    return artiste.nom.toLowerCase().includes(searchTerm.toLowerCase());
+  }), [artistes, searchTerm]);
+
+  const totalSolde = useMemo(() => filteredArtistes.reduce(
+    (sum, a) => sum + (a.solde || 0),
+    0
+  ), [filteredArtistes]);
+  const totalCredits = useMemo(() => filteredArtistes.reduce(
+    (sum, a) => sum + (a.total_credit || 0),
+    0
+  ), [filteredArtistes]);
+  const totalDebits = useMemo(() => filteredArtistes.reduce(
+    (sum, a) => sum + (a.total_debit || 0),
+    0
+  ), [filteredArtistes]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -131,23 +150,6 @@ export default function ArtistesPage() {
       </div>
     );
   }
-
-  const filteredArtistes = artistes.filter((artiste) => {
-    return artiste.nom.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  const totalSolde = filteredArtistes.reduce(
-    (sum, a) => sum + (a.solde || 0),
-    0
-  );
-  const totalCredits = filteredArtistes.reduce(
-    (sum, a) => sum + (a.total_credit || 0),
-    0
-  );
-  const totalDebits = filteredArtistes.reduce(
-    (sum, a) => sum + (a.total_debit || 0),
-    0
-  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -414,7 +416,7 @@ export default function ArtistesPage() {
                 <TableRow
                   key={artiste.id}
                   className="cursor-pointer hover:bg-indigo-50/50 transition-colors"
-                  onClick={() => window.location.href = `/dashboard/artistes/${artiste.id}`}
+                  onClick={() => router.push(`/dashboard/artistes/${artiste.id}`)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">

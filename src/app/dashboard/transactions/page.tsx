@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -139,15 +139,7 @@ export default function TransactionsPage() {
     setTransactions(transactions.filter((tx) => tx.id !== id));
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-      </div>
-    );
-  }
-
-  const filteredTransactions = transactions.filter((tx) => {
+  const filteredTransactions = useMemo(() => transactions.filter((tx) => {
     const matchesSearch = tx.description
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -161,14 +153,22 @@ export default function TransactionsPage() {
     const matchesProjet =
       filterProjet === 'all' || tx.projet_id === filterProjet;
     return matchesSearch && matchesType && matchesArtiste && matchesProjet;
-  });
+  }), [transactions, searchTerm, filterType, filterArtiste, filterProjet]);
+
+  const totalCredits = useMemo(() => filteredTransactions.reduce((sum, tx) => sum + tx.credit, 0), [filteredTransactions]);
+  const totalDebits = useMemo(() => filteredTransactions.reduce((sum, tx) => sum + tx.debit, 0), [filteredTransactions]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+      </div>
+    );
+  }
 
   // Lazy loading: only display a subset of transactions
   const displayedTransactions = filteredTransactions.slice(0, displayCount);
   const hasMore = displayCount < filteredTransactions.length;
-
-  const totalCredits = filteredTransactions.reduce((sum, tx) => sum + tx.credit, 0);
-  const totalDebits = filteredTransactions.reduce((sum, tx) => sum + tx.debit, 0);
 
   return (
     <div className="space-y-4 sm:space-y-6">

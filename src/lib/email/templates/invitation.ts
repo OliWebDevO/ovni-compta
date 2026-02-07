@@ -12,13 +12,24 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: 'Lecteur (lecture seule)',
 };
 
+/** Escape HTML special characters to prevent injection in emails */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function getContextBlock({ inviteType, artisteName }: InvitationEmailProps): string {
+  const safeArtisteName = artisteName ? escapeHtml(artisteName) : '';
   switch (inviteType) {
     case 'existing':
       return `
         <p style="margin: 0 0 16px; color: #333333; font-size: 16px; line-height: 1.5;">
           Votre compte sera automatiquement lié à votre profil artiste :
-          <strong>${artisteName}</strong>.
+          <strong>${safeArtisteName}</strong>.
           Vous retrouverez toutes vos transactions et données déjà enregistrées.
         </p>
       `;

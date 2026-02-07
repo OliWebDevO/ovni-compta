@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getCurrentUser } from '@/lib/actions/profile';
+import { useMemo } from 'react';
+import { useUser } from '@/contexts/UserContext';
 
 type UserRole = 'admin' | 'editor' | 'viewer';
 
@@ -15,30 +15,23 @@ interface Permissions {
 }
 
 export function usePermissions(): Permissions {
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading } = useUser();
 
-  useEffect(() => {
-    async function fetchRole() {
-      const { data: user } = await getCurrentUser();
-      setRole(user?.role || null);
-      setIsLoading(false);
-    }
-    fetchRole();
-  }, []);
+  return useMemo(() => {
+    const role = user?.role || null;
+    const isAdmin = role === 'admin';
+    const isEditor = role === 'editor';
+    const canEdit = isAdmin || isEditor;
+    const canCreate = isAdmin || isEditor;
+    const canDelete = isAdmin || isEditor;
 
-  const isAdmin = role === 'admin';
-  const isEditor = role === 'editor';
-  const canEdit = isAdmin || isEditor;
-  const canCreate = isAdmin || isEditor;
-  const canDelete = isAdmin || isEditor;
-
-  return {
-    canEdit,
-    canCreate,
-    canDelete,
-    isAdmin,
-    isLoading,
-    role,
-  };
+    return {
+      canEdit,
+      canCreate,
+      canDelete,
+      isAdmin,
+      isLoading,
+      role,
+    };
+  }, [user?.role, isLoading]);
 }

@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createTransfertSchema, uuidSchema, validateInput } from '@/lib/schemas';
+import { rateLimit } from '@/lib/rate-limit';
 
 export interface TransfertWithRelations {
   id: string;
@@ -85,23 +87,35 @@ export async function createTransfert(input: {
   destination_artiste_id: string | null;
   destination_projet_id: string | null;
 }): Promise<{ success: boolean; error: string | null }> {
+  // Validate input
+  const validation = validateInput(createTransfertSchema, input);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Rate limit per user
+  const rl = rateLimit(`createTransfert:${user?.id}`, 15, 60_000);
+  if (!rl.allowed) return { success: false, error: rl.error };
+
+  const validated = validation.data;
+
   // Créer la transaction de débit (sortie de la source)
   // Pour ASBL: artiste_id et projet_id sont null
   const { data: debitTx, error: debitError } = await supabase
     .from('transactions')
     .insert({
-      date: input.date,
-      description: `Transfert: ${input.description}`,
+      date: validated.date,
+      description: `Transfert: ${validated.description}`,
       credit: 0,
-      debit: input.montant,
-      artiste_id: input.source_type === 'artiste' ? input.source_artiste_id : null,
-      projet_id: input.source_type === 'projet' ? input.source_projet_id : null,
+      debit: validated.montant,
+      artiste_id: validated.source_type === 'artiste' ? validated.source_artiste_id : null,
+      projet_id: validated.source_type === 'projet' ? validated.source_projet_id : null,
       categorie: 'transfert_interne',
       created_by: user?.id || null,
     })
@@ -117,12 +131,12 @@ export async function createTransfert(input: {
   const { data: creditTx, error: creditError } = await supabase
     .from('transactions')
     .insert({
-      date: input.date,
-      description: `Transfert: ${input.description}`,
-      credit: input.montant,
+      date: validated.date,
+      description: `Transfert: ${validated.description}`,
+      credit: validated.montant,
       debit: 0,
-      artiste_id: input.destination_type === 'artiste' ? input.destination_artiste_id : null,
-      projet_id: input.destination_type === 'projet' ? input.destination_projet_id : null,
+      artiste_id: validated.destination_type === 'artiste' ? validated.destination_artiste_id : null,
+      projet_id: validated.destination_type === 'projet' ? validated.destination_projet_id : null,
       categorie: 'transfert_interne',
       created_by: user?.id || null,
     })
@@ -138,15 +152,15 @@ export async function createTransfert(input: {
   const { error: transfertError } = await supabase
     .from('transferts')
     .insert({
-      date: input.date,
-      montant: input.montant,
-      description: input.description,
-      source_type: input.source_type as 'artiste' | 'projet',
-      source_artiste_id: input.source_artiste_id,
-      source_projet_id: input.source_projet_id,
-      destination_type: input.destination_type as 'artiste' | 'projet',
-      destination_artiste_id: input.destination_artiste_id,
-      destination_projet_id: input.destination_projet_id,
+      date: validated.date,
+      montant: validated.montant,
+      description: validated.description,
+      source_type: validated.source_type as 'artiste' | 'projet',
+      source_artiste_id: validated.source_artiste_id,
+      source_projet_id: validated.source_projet_id,
+      destination_type: validated.destination_type as 'artiste' | 'projet',
+      destination_artiste_id: validated.destination_artiste_id,
+      destination_projet_id: validated.destination_projet_id,
       transaction_debit_id: debitTx.id,
       transaction_credit_id: creditTx.id,
       created_by: user?.id || null,
@@ -173,28 +187,41 @@ export async function updateTransfert(
     destination_projet_id: string | null;
   }
 ): Promise<{ success: boolean; error: string | null }> {
+  // Validate ID and input
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
+  const validation = validateInput(createTransfertSchema, input);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+
   const supabase = await createClient();
 
   // Récupérer le transfert existant avec les IDs des transactions
   const { data: existingTransfert, error: fetchError } = await supabase
     .from('transferts')
     .select('transaction_debit_id, transaction_credit_id')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (fetchError || !existingTransfert) {
     return { success: false, error: fetchError?.message || 'Transfert non trouvé' };
   }
 
+  const validated = validation.data;
+
   // Mettre à jour la transaction de débit
   const { error: debitError } = await supabase
     .from('transactions')
     .update({
-      date: input.date,
-      description: `Transfert: ${input.description}`,
-      debit: input.montant,
-      artiste_id: input.source_type === 'artiste' ? input.source_artiste_id : null,
-      projet_id: input.source_type === 'projet' ? input.source_projet_id : null,
+      date: validated.date,
+      description: `Transfert: ${validated.description}`,
+      debit: validated.montant,
+      artiste_id: validated.source_type === 'artiste' ? validated.source_artiste_id : null,
+      projet_id: validated.source_type === 'projet' ? validated.source_projet_id : null,
     })
     .eq('id', existingTransfert.transaction_debit_id);
 
@@ -206,11 +233,11 @@ export async function updateTransfert(
   const { error: creditError } = await supabase
     .from('transactions')
     .update({
-      date: input.date,
-      description: `Transfert: ${input.description}`,
-      credit: input.montant,
-      artiste_id: input.destination_type === 'artiste' ? input.destination_artiste_id : null,
-      projet_id: input.destination_type === 'projet' ? input.destination_projet_id : null,
+      date: validated.date,
+      description: `Transfert: ${validated.description}`,
+      credit: validated.montant,
+      artiste_id: validated.destination_type === 'artiste' ? validated.destination_artiste_id : null,
+      projet_id: validated.destination_type === 'projet' ? validated.destination_projet_id : null,
     })
     .eq('id', existingTransfert.transaction_credit_id);
 
@@ -223,17 +250,17 @@ export async function updateTransfert(
   const { error: transfertError } = await supabase
     .from('transferts')
     .update({
-      date: input.date,
-      montant: input.montant,
-      description: input.description,
-      source_type: input.source_type as 'artiste' | 'projet',
-      source_artiste_id: input.source_artiste_id,
-      source_projet_id: input.source_projet_id,
-      destination_type: input.destination_type as 'artiste' | 'projet',
-      destination_artiste_id: input.destination_artiste_id,
-      destination_projet_id: input.destination_projet_id,
+      date: validated.date,
+      montant: validated.montant,
+      description: validated.description,
+      source_type: validated.source_type as 'artiste' | 'projet',
+      source_artiste_id: validated.source_artiste_id,
+      source_projet_id: validated.source_projet_id,
+      destination_type: validated.destination_type as 'artiste' | 'projet',
+      destination_artiste_id: validated.destination_artiste_id,
+      destination_projet_id: validated.destination_projet_id,
     })
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (transfertError) {
     return { success: false, error: transfertError.message };
@@ -246,13 +273,19 @@ export async function deleteTransfert(id: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
+  // Validate ID
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { success: false, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   // Récupérer les IDs des transactions liées
   const { data: transfert, error: fetchError } = await supabase
     .from('transferts')
     .select('transaction_debit_id, transaction_credit_id')
-    .eq('id', id)
+    .eq('id', idValidation.data)
     .single();
 
   if (fetchError) {
@@ -263,7 +296,7 @@ export async function deleteTransfert(id: string): Promise<{
   const { error: deleteError } = await supabase
     .from('transferts')
     .delete()
-    .eq('id', id);
+    .eq('id', idValidation.data);
 
   if (deleteError) {
     return { success: false, error: deleteError.message };

@@ -100,23 +100,26 @@ export async function getGlobalStats(): Promise<{
 }> {
   const supabase = await createClient();
 
+  // Use the bilans_annuels view which already aggregates data via SQL
   const { data, error } = await supabase
-    .from('transactions')
-    .select('credit, debit');
+    .from('bilans_annuels')
+    .select('total_credit, total_debit, nb_transactions');
 
   if (error) {
     return { data: null, error: error.message };
   }
 
-  const totalCredits = (data || []).reduce((sum, t) => sum + (t.credit || 0), 0);
-  const totalDebits = (data || []).reduce((sum, t) => sum + (t.debit || 0), 0);
+  // Sum across all years (the view groups by year)
+  const totalCredits = (data || []).reduce((sum, row) => sum + (row.total_credit || 0), 0);
+  const totalDebits = (data || []).reduce((sum, row) => sum + (row.total_debit || 0), 0);
+  const transactionsCount = (data || []).reduce((sum, row) => sum + (row.nb_transactions || 0), 0);
 
   return {
     data: {
       totalCredits,
       totalDebits,
       solde: totalCredits - totalDebits,
-      transactionsCount: data?.length || 0,
+      transactionsCount,
     },
     error: null,
   };

@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { entityTypeSchema, uuidSchema, validateInput } from '@/lib/schemas';
 
 type EntityType = 'artistes' | 'projets' | 'ressources' | 'transactions';
 
@@ -8,15 +9,26 @@ export async function getEntityName(
   entityType: EntityType,
   id: string
 ): Promise<{ data: string | null; error: string | null }> {
+  // Validate inputs
+  const typeValidation = validateInput(entityTypeSchema, entityType);
+  if (!typeValidation.success) {
+    return { data: null, error: typeValidation.error };
+  }
+
+  const idValidation = validateInput(uuidSchema, id);
+  if (!idValidation.success) {
+    return { data: null, error: idValidation.error };
+  }
+
   const supabase = await createClient();
 
   try {
-    switch (entityType) {
+    switch (typeValidation.data) {
       case 'artistes': {
         const { data, error } = await supabase
           .from('artistes')
           .select('nom')
-          .eq('id', id)
+          .eq('id', idValidation.data)
           .single();
         if (error) return { data: null, error: error.message };
         return { data: data?.nom || null, error: null };
@@ -25,7 +37,7 @@ export async function getEntityName(
         const { data, error } = await supabase
           .from('projets')
           .select('nom')
-          .eq('id', id)
+          .eq('id', idValidation.data)
           .single();
         if (error) return { data: null, error: error.message };
         return { data: data?.nom || null, error: null };
@@ -34,7 +46,7 @@ export async function getEntityName(
         const { data, error } = await supabase
           .from('ressources')
           .select('titre')
-          .eq('id', id)
+          .eq('id', idValidation.data)
           .single();
         if (error) return { data: null, error: error.message };
         return { data: data?.titre || null, error: null };
@@ -43,7 +55,7 @@ export async function getEntityName(
         const { data, error } = await supabase
           .from('transactions')
           .select('description')
-          .eq('id', id)
+          .eq('id', idValidation.data)
           .single();
         if (error) return { data: null, error: error.message };
         // Truncate long descriptions

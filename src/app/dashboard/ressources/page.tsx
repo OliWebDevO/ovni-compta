@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -246,17 +246,12 @@ export default function RessourcesPage() {
     fetchRessources();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
-      </div>
-    );
-  }
+  const importantRessources = useMemo(
+    () => ressources.filter((r) => r.important),
+    [ressources]
+  );
 
-  const importantRessources = ressources.filter((r) => r.important);
-
-  const filterRessources = (categorie: RessourceCategorie) => {
+  const filterRessources = useCallback((categorie: RessourceCategorie) => {
     let filtered = ressources.filter((r) => r.categorie === categorie);
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -268,16 +263,27 @@ export default function RessourcesPage() {
       );
     }
     return filtered;
-  };
+  }, [ressources, searchQuery]);
 
-  const allFilteredRessources = searchQuery
-    ? ressources.filter(
-        (r) =>
-          r.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          r.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : null;
+  const allFilteredRessources = useMemo(
+    () => searchQuery
+      ? ressources.filter(
+          (r) =>
+            r.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+      : null,
+    [ressources, searchQuery]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

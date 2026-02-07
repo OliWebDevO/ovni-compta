@@ -129,7 +129,7 @@
 
 @theme inline {
   /* Typography */
-  --font-family-sans: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --font-family-sans: var(--font-satoshi), 'Satoshi', ui-sans-serif, system-ui, sans-serif;
   --font-family-mono: ui-monospace, monospace;
 
   /* Colors - Map to CSS variables */

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/lib/actions/profile';
+import { useUser } from '@/contexts/UserContext';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 export default function AdminLayout({
@@ -11,27 +11,24 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const { user, isLoading: isUserLoading } = useUser();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    async function checkAuthorization() {
-      const { data: user } = await getCurrentUser();
+    if (isUserLoading) return;
 
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      if (user.role !== 'admin') {
-        setIsAuthorized(false);
-        return;
-      }
-
-      setIsAuthorized(true);
+    if (!user) {
+      router.push('/login');
+      return;
     }
 
-    checkAuthorization();
-  }, [router]);
+    if (user.role !== 'admin') {
+      setIsAuthorized(false);
+      return;
+    }
+
+    setIsAuthorized(true);
+  }, [user, isUserLoading, router]);
 
   // Loading state
   if (isAuthorized === null) {

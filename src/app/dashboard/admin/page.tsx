@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -181,6 +181,14 @@ export default function AdminPage() {
     setIsRoleDialogOpen(true);
   };
 
+  const filteredUsers = useMemo(
+    () => users.filter((user) =>
+      user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [users, searchTerm]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -188,11 +196,6 @@ export default function AdminPage() {
       </div>
     );
   }
-
-  const filteredUsers = users.filter((user) =>
-    user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">

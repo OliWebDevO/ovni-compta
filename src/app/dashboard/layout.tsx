@@ -41,9 +41,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getCurrentUser, type CurrentUser } from '@/lib/actions/profile';
 import { logout } from '@/lib/auth/actions';
 import { getEntityName } from '@/lib/actions/breadcrumbs';
+import { UserProvider, useUser } from '@/contexts/UserContext';
 
 interface BreadcrumbConfig {
   label: string;
@@ -180,7 +180,7 @@ const entityTypeMap: Record<string, 'artistes' | 'projets' | 'ressources' | 'tra
   transactions: 'transactions',
 };
 
-export default function DashboardLayout({
+function DashboardLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -188,20 +188,12 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
   const [isMounted, setIsMounted] = useState(false);
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading } = useUser();
   const [entityNames, setEntityNames] = useState<Record<string, string>>({});
 
-  // Fetch current user and prevent hydration mismatch
+  // Prevent hydration mismatch
   useEffect(() => {
     setIsMounted(true);
-
-    async function fetchUser() {
-      const { data } = await getCurrentUser();
-      setUser(data);
-      setIsLoading(false);
-    }
-    fetchUser();
   }, []);
 
   // Fetch entity names for UUID segments
@@ -386,5 +378,17 @@ export default function DashboardLayout({
       </SidebarInset>
       <BottomNav userRole={user?.role} />
     </SidebarProvider>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <UserProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </UserProvider>
   );
 }

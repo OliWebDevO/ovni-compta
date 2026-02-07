@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { BilanAnnuel, BilanMensuel, TransactionWithRelations } from '@/types/database';
+import { anneeSchema, validateInput } from '@/lib/schemas';
 
 export async function getBilansAnnuels(): Promise<{
   data: BilanAnnuel[] | null;
@@ -25,12 +26,18 @@ export async function getBilansMensuels(annee: number): Promise<{
   data: BilanMensuel[] | null;
   error: string | null;
 }> {
+  // Validate year
+  const anneeValidation = validateInput(anneeSchema, annee);
+  if (!anneeValidation.success) {
+    return { data: null, error: anneeValidation.error };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('bilans_mensuels')
     .select('*')
-    .eq('annee', annee)
+    .eq('annee', anneeValidation.data)
     .order('mois');
 
   if (error) {

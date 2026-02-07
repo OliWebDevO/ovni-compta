@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -189,8 +189,11 @@ export default function CaisseOvniPage() {
     if (statsRes.data) setStats(statsRes.data);
   };
 
-  const filteredTransactions = transactions.filter((tx) =>
-    tx.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = useMemo(
+    () => transactions.filter((tx) =>
+      tx.description.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [transactions, searchTerm]
   );
 
   if (isLoading) {

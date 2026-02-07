@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -119,6 +119,42 @@ export default function TransfertsPage() {
     fetchData();
   }, []);
 
+  // Filtrage
+  const filteredTransferts = useMemo(
+    () => transferts.filter((tf) => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch =
+        tf.description.toLowerCase().includes(searchLower) ||
+        tf.source_nom?.toLowerCase().includes(searchLower) ||
+        tf.destination_nom?.toLowerCase().includes(searchLower);
+
+      const matchesType =
+        filterType === 'all' ||
+        (filterType === 'asbl' && (tf.source_type === 'asbl' || tf.destination_type === 'asbl')) ||
+        (filterType === 'artiste' && (tf.source_type === 'artiste' || tf.destination_type === 'artiste')) ||
+        (filterType === 'projet' && (tf.source_type === 'projet' || tf.destination_type === 'projet'));
+
+      const matchesArtiste =
+        filterArtiste === 'all' ||
+        tf.source_artiste_id === filterArtiste ||
+        tf.destination_artiste_id === filterArtiste;
+
+      const matchesProjet =
+        filterProjet === 'all' ||
+        tf.source_projet_id === filterProjet ||
+        tf.destination_projet_id === filterProjet;
+
+      return matchesSearch && matchesType && matchesArtiste && matchesProjet;
+    }),
+    [transferts, searchTerm, filterType, filterArtiste, filterProjet]
+  );
+
+  // Calculs
+  const totalTransferts = useMemo(
+    () => filteredTransferts.reduce((sum, tf) => sum + tf.montant, 0),
+    [filteredTransferts]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -126,36 +162,6 @@ export default function TransfertsPage() {
       </div>
     );
   }
-
-  // Filtrage
-  const filteredTransferts = transferts.filter((tf) => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch =
-      tf.description.toLowerCase().includes(searchLower) ||
-      tf.source_nom?.toLowerCase().includes(searchLower) ||
-      tf.destination_nom?.toLowerCase().includes(searchLower);
-
-    const matchesType =
-      filterType === 'all' ||
-      (filterType === 'asbl' && (tf.source_type === 'asbl' || tf.destination_type === 'asbl')) ||
-      (filterType === 'artiste' && (tf.source_type === 'artiste' || tf.destination_type === 'artiste')) ||
-      (filterType === 'projet' && (tf.source_type === 'projet' || tf.destination_type === 'projet'));
-
-    const matchesArtiste =
-      filterArtiste === 'all' ||
-      tf.source_artiste_id === filterArtiste ||
-      tf.destination_artiste_id === filterArtiste;
-
-    const matchesProjet =
-      filterProjet === 'all' ||
-      tf.source_projet_id === filterProjet ||
-      tf.destination_projet_id === filterProjet;
-
-    return matchesSearch && matchesType && matchesArtiste && matchesProjet;
-  });
-
-  // Calculs
-  const totalTransferts = filteredTransferts.reduce((sum, tf) => sum + tf.montant, 0);
 
   // Handler creation transfert
   const handleCreateTransfert = async () => {

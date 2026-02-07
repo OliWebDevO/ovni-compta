@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -23,11 +23,11 @@ import {
   ArrowDownRight,
   Loader2,
 } from 'lucide-react';
-import { getCurrentUser } from '@/lib/actions/profile';
+import { useUser } from '@/contexts/UserContext';
 import { getArtisteById, getArtisteTransactions } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
 import type { ArtisteWithStats, ProjetWithStats } from '@/types/database';
-import type { CurrentUser } from '@/lib/actions/profile';
+
 import {
   formatCurrency,
   formatDateLong,
@@ -77,6 +77,7 @@ export default function MonComptePage() {
   const [mesTransactions, setMesTransactions] = useState<ArtisteTransaction[]>([]);
   const [mesProjets, setMesProjets] = useState<ProjetWithStats[]>([]);
   const { canEdit } = usePermissions();
+  const { user: currentUser, isLoading: isUserLoading } = useUser();
 
   const handleDelete = async (id: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) return;
@@ -91,15 +92,15 @@ export default function MonComptePage() {
   };
 
   useEffect(() => {
+    if (isUserLoading) return;
+
     async function fetchData() {
-      // First get the current user to find their artiste_id
-      const userRes = await getCurrentUser();
-      if (!userRes.data?.artiste_id) {
+      if (!currentUser?.artiste_id) {
         setIsLoading(false);
         return;
       }
 
-      const artisteId = userRes.data.artiste_id;
+      const artisteId = currentUser.artiste_id;
 
       // Fetch artiste data, transactions, and projets in parallel
       const [artisteRes, txRes, projetsRes] = await Promise.all([
@@ -117,10 +118,10 @@ export default function MonComptePage() {
       setIsLoading(false);
     }
     fetchData();
-  }, []);
+  }, [currentUser, isUserLoading]);
 
   // Compute monthly data from transactions
-  const monthlyData = mesTransactions.reduce((acc, tx) => {
+  const monthlyData = useMemo(() => mesTransactions.reduce((acc, tx) => {
     const date = new Date(tx.date);
     const monthKey = MOIS[date.getMonth()].slice(0, 4);
     const existing = acc.find(m => m.mois === monthKey);
@@ -131,10 +132,10 @@ export default function MonComptePage() {
       acc.push({ mois: monthKey, credit: tx.credit, debit: tx.debit });
     }
     return acc;
-  }, [] as { mois: string; credit: number; debit: number }[]);
+  }, [] as { mois: string; credit: number; debit: number }[]), [mesTransactions]);
 
   // Compute expense breakdown by category
-  const expensesByCategory = mesTransactions
+  const expensesByCategory = useMemo(() => mesTransactions
     .filter(tx => tx.debit > 0)
     .reduce((acc, tx) => {
       const cat = tx.categorie || 'Autre';
@@ -147,7 +148,7 @@ export default function MonComptePage() {
       return acc;
     }, [] as { cat: string; montant: number }[])
     .sort((a, b) => b.montant - a.montant)
-    .slice(0, 5);
+    .slice(0, 5), [mesTransactions]);
 
   if (isLoading) {
     return (

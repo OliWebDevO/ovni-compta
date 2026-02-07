@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -131,6 +131,28 @@ export default function ProjetsPage() {
     fetchData();
   }, []);
 
+  const filteredProjets = useMemo(
+    () => projets.filter((projet) => {
+      const matchesSearch =
+        projet.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        projet.code.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatut =
+        filterStatut === 'all' || projet.statut === filterStatut;
+      return matchesSearch && matchesStatut;
+    }),
+    [projets, searchTerm, filterStatut]
+  );
+
+  const totalCredits = useMemo(
+    () => projets.reduce((sum, p) => sum + (p.total_credit || 0), 0),
+    [projets]
+  );
+  const totalDebits = useMemo(
+    () => projets.reduce((sum, p) => sum + (p.total_debit || 0), 0),
+    [projets]
+  );
+  const solde = useMemo(() => totalCredits - totalDebits, [totalCredits, totalDebits]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -138,19 +160,6 @@ export default function ProjetsPage() {
       </div>
     );
   }
-
-  const filteredProjets = projets.filter((projet) => {
-    const matchesSearch =
-      projet.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      projet.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatut =
-      filterStatut === 'all' || projet.statut === filterStatut;
-    return matchesSearch && matchesStatut;
-  });
-
-  const totalCredits = projets.reduce((sum, p) => sum + (p.total_credit || 0), 0);
-  const totalDebits = projets.reduce((sum, p) => sum + (p.total_debit || 0), 0);
-  const solde = totalCredits - totalDebits;
 
   return (
     <div className="space-y-4 sm:space-y-6">
