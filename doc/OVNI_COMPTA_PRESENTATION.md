@@ -1,20 +1,5 @@
 # OVNI Compta -- Application de gestion comptable sur mesure
 
-<div align="center">
-
-![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?style=for-the-badge&logo=supabase)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)
-
-**Application web de gestion comptable concue sur mesure pour une ASBL belge du secteur culturel.**
-
-[Voir l'application](https://www.asbl-ovni.com/) | [Fonctionnalites](#fonctionnalites) | [Fiche technique](#fiche-technique)
-
-</div>
-
----
-
 ## Le projet en bref
 
 **OVNI Compta** est une application web de gestion comptable que j'ai concue et developpee sur mesure pour une ASBL belge active dans le secteur culturel et artistique.
@@ -183,22 +168,14 @@ Exemples de secteurs : associations (ASBL/VZW), PME, agences, clubs sportifs, ec
 
 ---
 
-## Fiche technique
+## Fiche technique (pour les curieux)
 
 | | |
 |---|---|
 | **Type d'application** | Application web (accessible via navigateur) |
-| **Technologies principales** | Next.js 16, React 19, TypeScript, Supabase, Tailwind CSS 4 |
+| **Technologies principales** | Next.js, React, TypeScript, Supabase, Tailwind CSS |
 | **Base de donnees** | PostgreSQL (via Supabase) |
 | **Hebergement** | Vercel (serveur) + Supabase (base de donnees et fichiers) |
 | **Emails** | Envoi automatique d'invitations par email |
 | **Performances** | Chargement rapide, calculs instantanes, optimise pour mobile |
 | **Securite** | Chiffrement, controle d'acces par role, protection contre les attaques courantes |
-
----
-
-<div align="center">
-
-Developpe par **Oliver Van Droogenbroeck** pour [O.V.N.I ASBL](https://www.asbl-ovni.com/)
-
-</div>
