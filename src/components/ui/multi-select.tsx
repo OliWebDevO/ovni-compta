@@ -98,8 +98,8 @@ export function MultiSelect({
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <div className="max-h-60 overflow-auto p-1">
+      <PopoverContent className="w-full p-0 z-60" align="start" collisionPadding={16}>
+        <div className="max-h-[min(15rem,40vh)] overflow-y-auto overscroll-contain p-1" style={{ WebkitOverflowScrolling: 'touch' }}>
           {options.map((option) => {
             const isSelected = selected.includes(option.value);
             return (

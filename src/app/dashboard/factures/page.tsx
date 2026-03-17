@@ -94,6 +94,7 @@ export default function FacturesPage() {
     asbl: true,
   });
   const { canCreate, canEdit } = usePermissions();
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -246,6 +247,42 @@ export default function FacturesPage() {
     window.open(data.url, '_blank');
   };
 
+  // Drag & drop handler (desktop)
+  const handleDrop = (e: React.DragEvent, typeLiaison: TypeLiaison, entityId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverSection(null);
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Seuls les fichiers PDF sont acceptés');
+      return;
+    }
+
+    // Pre-fill the form with the dropped file and entity
+    setFormFile(file);
+    setFormTypeLiaison(typeLiaison);
+    setFormArtisteId(typeLiaison === 'artiste' && entityId ? entityId : '');
+    setFormProjetId(typeLiaison === 'projet' && entityId ? entityId : '');
+    setFormDescription(file.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' '));
+    setFormDate(new Date().toISOString().split('T')[0]);
+    setDialogOpen(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent, sectionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverSection(sectionId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverSection(null);
+  };
+
   // Group factures by entity
   const facturesAsbl = useMemo(
     () => factures.filter((f) => f.type_liaison === 'asbl'),
@@ -258,7 +295,7 @@ export default function FacturesPage() {
         artiste,
         factures: factures.filter((f) => f.artiste_id === artiste.id),
       }))
-      .filter((group) => group.factures.length > 0),
+      .sort((a, b) => b.factures.length - a.factures.length),
     [artistes, factures]
   );
 
@@ -268,7 +305,7 @@ export default function FacturesPage() {
         projet,
         factures: factures.filter((f) => f.projet_id === projet.id),
       }))
-      .filter((group) => group.factures.length > 0),
+      .sort((a, b) => b.factures.length - a.factures.length),
     [projets, factures]
   );
 
@@ -536,7 +573,34 @@ export default function FacturesPage() {
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 space-y-3">
+              {/* Drop zone - desktop only */}
+              {canCreate && (
+                <div
+                  className={cn(
+                    'hidden sm:flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-colors cursor-pointer',
+                    dragOverSection === 'asbl'
+                      ? 'border-teal-400 bg-teal-50 text-teal-600'
+                      : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-500'
+                  )}
+                  onDrop={(e) => handleDrop(e, 'asbl')}
+                  onDragOver={(e) => handleDragOver(e, 'asbl')}
+                  onDragLeave={handleDragLeave}
+                  onClick={() => {
+                    setFormTypeLiaison('asbl');
+                    setFormArtisteId('');
+                    setFormProjetId('');
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Upload className="h-5 w-5" />
+                  <span className="text-sm font-medium">
+                    {dragOverSection === 'asbl'
+                      ? 'Déposer le PDF ici'
+                      : 'Glissez un PDF ici ou cliquez pour ajouter'}
+                  </span>
+                </div>
+              )}
               {facturesAsbl.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Aucune facture ASBL
@@ -595,18 +659,51 @@ export default function FacturesPage() {
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0">
-                <div className="space-y-2">
-                  {artisteFactures.map((facture) => (
-                    <FactureItem
-                      key={facture.id}
-                      facture={facture}
-                      onDownload={handleDownload}
-                      onDelete={handleDelete}
-                      canEdit={canEdit}
-                    />
-                  ))}
-                </div>
+              <CardContent className="pt-0 space-y-3">
+                {/* Drop zone - desktop only */}
+                {canCreate && (
+                  <div
+                    className={cn(
+                      'hidden sm:flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-colors cursor-pointer',
+                      dragOverSection === artiste.id
+                        ? 'border-blue-400 bg-blue-50 text-blue-600'
+                        : 'border-blue-200/50 text-slate-400 hover:border-blue-300 hover:text-slate-500'
+                    )}
+                    onDrop={(e) => handleDrop(e, 'artiste', artiste.id)}
+                    onDragOver={(e) => handleDragOver(e, artiste.id)}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => {
+                      setFormTypeLiaison('artiste');
+                      setFormArtisteId(artiste.id);
+                      setFormProjetId('');
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span className="text-sm font-medium">
+                      {dragOverSection === artiste.id
+                        ? 'Déposer le PDF ici'
+                        : 'Glissez un PDF ici ou cliquez pour ajouter'}
+                    </span>
+                  </div>
+                )}
+                {artisteFactures.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Aucune facture
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {artisteFactures.map((facture) => (
+                      <FactureItem
+                        key={facture.id}
+                        facture={facture}
+                        onDownload={handleDownload}
+                        onDelete={handleDelete}
+                        canEdit={canEdit}
+                      />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Card>
@@ -647,26 +744,59 @@ export default function FacturesPage() {
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0">
-                <div className="space-y-2">
-                  {projetFactures.map((facture) => (
-                    <FactureItem
-                      key={facture.id}
-                      facture={facture}
-                      onDownload={handleDownload}
-                      onDelete={handleDelete}
-                      canEdit={canEdit}
-                    />
-                  ))}
-                </div>
+              <CardContent className="pt-0 space-y-3">
+                {/* Drop zone - desktop only */}
+                {canCreate && (
+                  <div
+                    className={cn(
+                      'hidden sm:flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-colors cursor-pointer',
+                      dragOverSection === projet.id
+                        ? 'border-purple-400 bg-purple-50 text-purple-600'
+                        : 'border-purple-200/50 text-slate-400 hover:border-purple-300 hover:text-slate-500'
+                    )}
+                    onDrop={(e) => handleDrop(e, 'projet', projet.id)}
+                    onDragOver={(e) => handleDragOver(e, projet.id)}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => {
+                      setFormTypeLiaison('projet');
+                      setFormProjetId(projet.id);
+                      setFormArtisteId('');
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span className="text-sm font-medium">
+                      {dragOverSection === projet.id
+                        ? 'Déposer le PDF ici'
+                        : 'Glissez un PDF ici ou cliquez pour ajouter'}
+                    </span>
+                  </div>
+                )}
+                {projetFactures.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Aucune facture
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {projetFactures.map((facture) => (
+                      <FactureItem
+                        key={facture.id}
+                        facture={facture}
+                        onDownload={handleDownload}
+                        onDelete={handleDelete}
+                        canEdit={canEdit}
+                      />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
       ))}
 
-      {/* Empty state */}
-      {factures.length === 0 && (
+      {/* Empty state - only show if no artistes and no projets exist at all */}
+      {factures.length === 0 && artistes.length === 0 && projets.length === 0 && (
         <Card className="bg-gradient-to-br from-slate-50 to-gray-50 border-slate-100">
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
