@@ -214,7 +214,14 @@ export default function FacturesPage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {factures.map((facture) => (
+              {[...factures].sort((a, b) => {
+                const matchA = a.description.match(/^F(\d+)/i);
+                const matchB = b.description.match(/^F(\d+)/i);
+                if (matchA && matchB) return Number(matchB[1]) - Number(matchA[1]);
+                if (matchA) return -1;
+                if (matchB) return 1;
+                return a.description.localeCompare(b.description);
+              }).map((facture) => (
                 <FactureItem
                   key={facture.id}
                   facture={facture}
