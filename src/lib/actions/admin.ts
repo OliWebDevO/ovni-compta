@@ -187,3 +187,67 @@ export async function deleteUser(userId: string): Promise<{ error: string | null
     return { error: err instanceof Error ? err.message : 'Erreur lors de la suppression' };
   }
 }
+
+export async function sendPasswordReset(
+  userId: string
+): Promise<{ error: string | null }> {
+  // Validate userId
+  const userIdValidation = validateInput(uuidSchema, userId);
+  if (!userIdValidation.success) return { error: userIdValidation.error };
+
+  const supabase = await createClient();
+
+  // Vérifier que l'appelant est admin
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'Non authentifié' };
+  }
+
+  const { data: currentUserProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (currentUserProfile?.role !== 'admin') {
+    return { error: 'Seuls les administrateurs peuvent réinitialiser un mot de passe' };
+  }
+
+  // Récupérer l'email du user cible
+  const { data: targetProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', userIdValidation.data)
+    .single();
+
+  if (profileError || !targetProfile?.email) {
+    return { error: 'Utilisateur introuvable' };
+  }
+
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    // resetPasswordForEmail déclenche l'envoi de l'email via le SMTP configuré
+    // dans Supabase. À l'inverse de admin.generateLink (qui retourne juste le lien),
+    // cette méthode garantit l'envoi de l'email — c'est la même que celle utilisée
+    // par le bouton "Mot de passe oublié" côté utilisateur.
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      targetProfile.email,
+      {
+        redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
+      }
+    );
+
+    if (resetError) {
+      return { error: resetError.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Erreur lors de l\'envoi de l\'email',
+    };
+  }
+}

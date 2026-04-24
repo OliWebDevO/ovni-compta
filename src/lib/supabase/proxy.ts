@@ -50,8 +50,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login/register pages
-  if (user && (pathname === '/login' || pathname === '/register')) {
+  // Redirect authenticated users away from login/register/forgot-password pages
+  // (mais PAS /reset-password : un user authentifié via le callback de récupération
+  // doit pouvoir y accéder pour changer son mot de passe)
+  if (
+    user &&
+    (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password')
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);

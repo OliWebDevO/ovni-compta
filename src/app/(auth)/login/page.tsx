@@ -18,10 +18,27 @@ import {
 } from '@/components/ui/card';
 import { LogIn, Loader2 } from 'lucide-react';
 
-const MESSAGE_CODES: Record<string, string> = {
-  signup_success: 'Vérifiez votre email pour confirmer votre inscription.',
-  password_reset: 'Un email de réinitialisation a été envoyé.',
-  session_expired: 'Votre session a expiré. Veuillez vous reconnecter.',
+const MESSAGE_CODES: Record<string, { text: string; type: 'success' | 'error' }> = {
+  signup_success: {
+    text: 'Vérifiez votre email pour confirmer votre inscription.',
+    type: 'success',
+  },
+  password_reset: {
+    text: 'Un email de réinitialisation a été envoyé.',
+    type: 'success',
+  },
+  password_updated: {
+    text: 'Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.',
+    type: 'success',
+  },
+  session_expired: {
+    text: 'Votre session a expiré. Veuillez vous reconnecter.',
+    type: 'error',
+  },
+  auth_error: {
+    text: 'Lien invalide ou expiré. Veuillez recommencer la procédure depuis votre email.',
+    type: 'error',
+  },
 };
 
 function LoginForm() {
@@ -82,10 +99,16 @@ function LoginForm() {
 
       <form action={handleSubmit}>
         <CardContent className="grid gap-4 pt-4">
-          {/* Message de confirmation (ex: après inscription) */}
+          {/* Message de confirmation ou d'erreur (ex: après inscription, lien expiré...) */}
           {message && (
-            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">
-              {message}
+            <div
+              className={
+                message.type === 'success'
+                  ? 'rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700'
+                  : 'rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700'
+              }
+            >
+              {message.text}
             </div>
           )}
 
@@ -111,7 +134,15 @@ function LoginForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="password">Mot de passe</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-violet-600 hover:text-violet-700 hover:underline underline-offset-4"
+              >
+                Mot de passe oublié&nbsp;?
+              </Link>
+            </div>
             <Input
               id="password"
               name="password"

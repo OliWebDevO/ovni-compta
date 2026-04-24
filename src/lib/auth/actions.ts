@@ -3,7 +3,13 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { loginSchema, signupSchema, validateInput } from '@/lib/schemas';
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+  signupSchema,
+  validateInput,
+} from '@/lib/schemas';
 
 export async function login(formData: FormData) {
   const rawInput = {
@@ -88,4 +94,68 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect('/login');
+}
+
+export async function forgotPassword(formData: FormData) {
+  const rawInput = {
+    email: formData.get('email') as string,
+  };
+
+  const validation = validateInput(forgotPasswordSchema, rawInput);
+  if (!validation.success) {
+    return { error: validation.error };
+  }
+
+  // 3 tentatives par minute par email — protège contre l'envoi en masse
+  const rl = rateLimit(`forgot:${validation.data.email.toLowerCase()}`, 3, 60_000);
+  if (!rl.allowed) {
+    return { error: 'Trop de tentatives. Veuillez réessayer dans quelques instants.' };
+  }
+
+  const supabase = await createClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  await supabase.auth.resetPasswordForEmail(validation.data.email, {
+    redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
+  });
+
+  // Réponse identique que l'email existe ou non (anti-énumération)
+  return { success: true };
+}
+
+export async function resetPassword(formData: FormData) {
+  const rawInput = {
+    password: formData.get('password') as string,
+    confirmPassword: formData.get('confirmPassword') as string,
+  };
+
+  const validation = validateInput(resetPasswordSchema, rawInput);
+  if (!validation.success) {
+    return { error: validation.error };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error:
+        'Session invalide ou expirée. Veuillez recommencer la procédure depuis l\'email reçu.',
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: validation.data.password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  // Déconnexion forcée pour que l'utilisateur se reconnecte avec son nouveau mot de passe
+  await supabase.auth.signOut();
+  redirect('/login?message=password_updated');
 }

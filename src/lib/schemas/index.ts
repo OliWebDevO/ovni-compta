@@ -310,8 +310,27 @@ export const signupSchema = z.object({
   couleur: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Format couleur invalide').optional().default('#888888'),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(6, 'Le mot de passe doit faire au moins 6 caractères')
+      .max(72, 'Mot de passe trop long'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirmPassword'],
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 // =============================================
 // Breadcrumb Schemas

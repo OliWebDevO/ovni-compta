@@ -63,8 +63,9 @@ import {
   ArrowRight,
   Loader2,
   BookOpen,
+  KeyRound,
 } from 'lucide-react';
-import { getUsers, deleteUser, updateUserRole } from '@/lib/actions/admin';
+import { getUsers, deleteUser, updateUserRole, sendPasswordReset } from '@/lib/actions/admin';
 import { getTransactions } from '@/lib/actions/transactions';
 import { getArtistes } from '@/lib/actions/artistes';
 import { getProjets } from '@/lib/actions/projets';
@@ -106,6 +107,7 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -179,6 +181,30 @@ export default function AdminPage() {
     setSelectedUser(user);
     setNewRole(user.role);
     setIsRoleDialogOpen(true);
+  };
+
+  // Ouvrir le dialog de réinitialisation de mot de passe
+  const openResetPasswordDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setIsResetPasswordDialogOpen(true);
+  };
+
+  // Handler pour envoyer l'email de réinitialisation
+  const handleSendPasswordReset = async () => {
+    if (!selectedUser) return;
+    setIsSubmitting(true);
+
+    const { error } = await sendPasswordReset(selectedUser.id);
+
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(`Email de réinitialisation envoyé à ${selectedUser.email}`);
+    }
+
+    setIsSubmitting(false);
+    setIsResetPasswordDialogOpen(false);
+    setSelectedUser(null);
   };
 
   const filteredUsers = useMemo(
@@ -373,6 +399,10 @@ export default function AdminPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Modifier le rôle
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Réinitialiser le mot de passe
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-rose-500" onClick={() => openDeleteDialog(user)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Supprimer
@@ -437,6 +467,10 @@ export default function AdminPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               Modifier le rôle
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openResetPasswordDialog(user)}>
+                              <KeyRound className="mr-2 h-4 w-4" />
+                              Réinitialiser le mot de passe
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-rose-500" onClick={() => openDeleteDialog(user)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Supprimer
@@ -475,6 +509,37 @@ export default function AdminPage() {
                     </>
                   ) : (
                     'Supprimer'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Dialog de confirmation d'envoi du mail de réinitialisation */}
+          <AlertDialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Réinitialiser le mot de passe</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Un email de réinitialisation va être envoyé à{' '}
+                  <strong>{selectedUser?.email}</strong>. La personne pourra cliquer sur
+                  le lien reçu pour choisir un nouveau mot de passe.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isSubmitting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleSendPasswordReset}
+                  disabled={isSubmitting}
+                  className="bg-violet-500 hover:bg-violet-600"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Envoi...
+                    </>
+                  ) : (
+                    'Envoyer l’email'
                   )}
                 </AlertDialogAction>
               </AlertDialogFooter>
