@@ -53,7 +53,7 @@ function CodeStep({
           Code d&apos;invitation
         </CardTitle>
         <CardDescription>
-          Entrez le code à 6 caractères que vous avez reçu.
+          Entrez le code d&apos;invitation que vous avez reçu.
         </CardDescription>
       </CardHeader>
 
@@ -70,11 +70,11 @@ function CodeStep({
             <Input
               id="code"
               type="text"
-              placeholder="AB3K9X"
+              placeholder="AB3K9XPQ7M"
               required
               autoFocus
               autoComplete="off"
-              maxLength={6}
+              maxLength={10}
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               className="text-center text-2xl font-mono tracking-widest border-gray-200 focus:border-violet-300 focus:ring-violet-200"
