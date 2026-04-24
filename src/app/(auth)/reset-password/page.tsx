@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import { resetPassword } from '@/lib/auth/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,33 @@ import { Lock, Loader2 } from 'lucide-react';
 export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  // Gère les tokens hash fragments provenant du flow implicite
+  // (admin-initiated password reset via generateLink)
+  useEffect(() => {
+    async function processHashTokens() {
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        if (accessToken && refreshToken) {
+          const supabase = createBrowserClient();
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          window.history.replaceState(null, '', '/reset-password');
+          if (sessionError) {
+            setError('Lien invalide ou expiré. Veuillez recommencer la procédure.');
+          }
+        }
+      }
+      setReady(true);
+    }
+    processHashTokens();
+  }, []);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -30,6 +58,14 @@ export default function ResetPasswordPage() {
       setError(result.error);
       setLoading(false);
     }
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+      </div>
+    );
   }
 
   return (
