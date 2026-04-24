@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resend, EMAIL_FROM } from '@/lib/email/resend';
 import { rateLimit } from '@/lib/rate-limit';
 import {
   forgotPasswordSchema,
@@ -112,12 +114,47 @@ export async function forgotPassword(formData: FormData) {
     return { error: 'Trop de tentatives. Veuillez réessayer dans quelques instants.' };
   }
 
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-  await supabase.auth.resetPasswordForEmail(validation.data.email, {
-    redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
-  });
+  // generateLink + Resend : même flow que le reset admin, template unifié.
+  // Si l'email n'existe pas, generateLink échoue silencieusement
+  // → on retourne toujours success (anti-énumération).
+  try {
+    const { data: linkData, error: linkError } =
+      await adminClient.auth.admin.generateLink({
+        type: 'recovery',
+        email: validation.data.email,
+        options: {
+          redirectTo: `${appUrl}/reset-password`,
+        },
+      });
+
+    if (!linkError && linkData?.properties?.action_link) {
+      await resend.emails.send({
+        from: EMAIL_FROM,
+        to: validation.data.email,
+        subject: 'Réinitialisation de votre mot de passe – O.V.N.I',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 16px;">
+            <h2 style="color: #7c3aed; margin-bottom: 16px;">Réinitialisation de mot de passe</h2>
+            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+            <p>Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe&nbsp;:</p>
+            <p style="margin: 32px 0;">
+              <a href="${linkData.properties.action_link}"
+                 style="background: #7c3aed; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">
+                Réinitialiser mon mot de passe
+              </a>
+            </p>
+            <p style="color: #888; font-size: 13px;">Si vous n&rsquo;êtes pas à l&rsquo;origine de cette demande, ignorez cet email.</p>
+            <p style="color: #888; font-size: 13px;">Ce lien expire dans 24&nbsp;heures.</p>
+          </div>
+        `,
+      });
+    }
+  } catch {
+    // Silencieux : anti-énumération
+  }
 
   // Réponse identique que l'email existe ou non (anti-énumération)
   return { success: true };

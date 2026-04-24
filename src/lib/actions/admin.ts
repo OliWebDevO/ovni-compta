@@ -257,7 +257,7 @@ export async function sendPasswordReset(
           <h2 style="color: #7c3aed; margin-bottom: 16px;">Réinitialisation de mot de passe</h2>
           <p>Un administrateur a demandé la réinitialisation de votre mot de passe.</p>
           <p>Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe&nbsp;:</p>
-          <p style="margin: 32px 0; text-align: center;">
+          <p style="margin: 32px 0;">
             <a href="${linkData.properties.action_link}"
                style="background: #7c3aed; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">
               Réinitialiser mon mot de passe
