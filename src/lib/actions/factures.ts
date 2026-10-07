@@ -263,9 +263,9 @@ export async function uploadFactureFile(formData: FormData): Promise<{
     return { data: null, error: 'Le fichier ne semble pas être un PDF valide' };
   }
 
-  // Limit file size to 10MB
-  if (file.size > 10 * 1024 * 1024) {
-    return { data: null, error: 'Le fichier ne doit pas dépasser 10 Mo' };
+  // Limit file size to 5MB (limite du bucket Supabase)
+  if (file.size > 5 * 1024 * 1024) {
+    return { data: null, error: 'Fichier trop lourd : maximum 5 Mo. Compressez le PDF puis réessayez.' };
   }
 
   // Générer un nom de fichier unique

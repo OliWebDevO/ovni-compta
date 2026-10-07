@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
+    // Upload des factures PDF (limite bucket Supabase : 5 Mo) + marge multipart
+    serverActions: {
+      bodySizeLimit: '6mb',
+    },
   },
   async headers() {
     return [

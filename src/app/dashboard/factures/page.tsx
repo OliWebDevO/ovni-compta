@@ -54,6 +54,12 @@ export default function FacturesPage() {
   const { canCreate, canEdit } = usePermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dernier numéro selon la nomenclature F<numéro> utilisée pour le tri
+  const lastFactureNumber = Math.max(
+    0,
+    ...factures.map((f) => Number(f.description.match(/^F(\d+)/i)?.[1] ?? 0))
+  );
+
   useEffect(() => {
     async function fetchData() {
       const res = await getFactures();
@@ -66,6 +72,14 @@ export default function FacturesPage() {
   const uploadFile = async (file: File) => {
     if (file.type !== 'application/pdf') {
       toast.error('Seuls les fichiers PDF sont acceptés');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      const sizeMo = (file.size / (1024 * 1024)).toFixed(1).replace('.', ',');
+      toast.error(
+        `Fichier trop lourd (${sizeMo} Mo) : maximum 5 Mo. Compressez le PDF (ex. ilovepdf.com) puis réessayez.`
+      );
       return;
     }
 
@@ -199,6 +213,14 @@ export default function FacturesPage() {
                       </span>
                       <span className="sm:hidden text-sm font-medium">
                         Appuyez pour ajouter un PDF
+                      </span>
+                      <span className="block text-xs mt-1">
+                        {lastFactureNumber > 0
+                          ? `Nommez le fichier F + un numéro plus élevé que la dernière facture (F${lastFactureNumber}), ex. F${lastFactureNumber + 1}`
+                          : 'Nommez le fichier F + un numéro (ex. F1) pour le classer dans l’ordre'}
+                      </span>
+                      <span className="block text-xs">
+                        PDF uniquement · 5 Mo maximum
                       </span>
                     </div>
                   </>
