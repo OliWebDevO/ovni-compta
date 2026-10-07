@@ -42,3 +42,6 @@ next-env.d.ts
 
 # data files
 /bilan compta O.V.N.I /
+
+# supabase cli
+/supabase/.temp/

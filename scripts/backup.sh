@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Sauvegarde complète : base de données Supabase + PDF du bucket "factures".
 #
-# Prérequis : Supabase CLI, Docker (lancé), Node 20+.
+# Prérequis : pg_dump/psql (macOS : brew install libpq), Node 20+.
 # Dans .env.local (non commité), ajouter l'URL "Session pooler" de
-# Project Settings > Database > Connection string :
+# Connect > Direct > Session pooler :
 #   SUPABASE_DB_URL=postgresql://postgres.xxxx:MOTDEPASSE@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
 #
 # Usage : ./scripts/backup.sh [dossier]   (défaut : ~/Backups/ovni-compta)
-# Résultat : <dossier>/AAAA-MM-JJ_HHMM.tar.gz
+# Résultat : <dossier>/AAAA-MM-JJ_HHMM.tar.gz ; les archives de plus de
+# KEEP_DAYS jours (défaut 56 = 8 semaines) sont supprimées.
+#
+# Restauration (dans cet ordre) : schema.sql, data.sql, auth_triggers.sql,
+# puis renvoyer les PDF de factures/ dans le bucket.
 set -euo pipefail
+
+# Homebrew (libpq est "keg-only") : utile quand le script est lancé par launchd
+export PATH="/opt/homebrew/opt/libpq/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 cd "$(dirname "$0")/.."
 
@@ -19,25 +26,51 @@ if [ -z "$SUPABASE_DB_URL" ]; then
 fi
 
 BACKUP_ROOT="${1:-$HOME/Backups/ovni-compta}"
+KEEP_DAYS="${KEEP_DAYS:-56}"
 NAME="$(date +%F_%H%M)"
 DEST="$BACKUP_ROOT/$NAME"
 mkdir -p "$DEST"
 
-echo "→ Base de données"
-supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DEST/roles.sql" --role-only
-supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DEST/schema.sql"
-supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DEST/data.sql" --data-only --use-copy
+echo "$(date '+%F %T') Début de la sauvegarde"
 
-# Triggers sur auth.users (inscriptions autorisées, création de profil...) :
-# exclus par "db dump" car le schéma auth est géré par Supabase.
-supabase db query --db-url "$SUPABASE_DB_URL" -o json "
+echo "→ Structure (extensions + schéma public)"
+{
+  psql "$SUPABASE_DB_URL" -X -q -At -v ON_ERROR_STOP=1 -c "
+    select format('CREATE EXTENSION IF NOT EXISTS %I WITH SCHEMA %I;', e.extname, n.nspname)
+    from pg_extension e join pg_namespace n on n.oid = e.extnamespace
+    where e.extname <> 'plpgsql'
+    order by e.extname"
+  # Retire ce qui existe déjà / est réservé à Supabase (refusé à la restauration)
+  pg_dump "$SUPABASE_DB_URL" --schema-only --schema=public --quote-all-identifiers \
+    | sed -E '/^CREATE SCHEMA "public";$/d;
+              /^ALTER SCHEMA "public" OWNER TO /d;
+              /^COMMENT ON SCHEMA "public" IS /d;
+              /^ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin"/d'
+} > "$DEST/schema.sql"
+
+echo "→ Données (public + comptes utilisateurs)"
+# session_replication_role = replica : désactive triggers et contraintes
+# pendant l'import (dépendance circulaire transactions <-> transferts).
+{
+  echo "SET session_replication_role = replica;"
+  pg_dump "$SUPABASE_DB_URL" --data-only --quote-all-identifiers \
+    --table='public.*' --table=auth.users --table=auth.identities
+  echo "SET session_replication_role = origin;"
+} > "$DEST/data.sql"
+
+echo "→ Triggers sur auth.users"
+# Exclus du schéma public, mais indispensables (inscriptions autorisées,
+# création de profil...). À appliquer après data.sql.
+psql "$SUPABASE_DB_URL" -X -q -At -v ON_ERROR_STOP=1 -c "
   select format('DROP TRIGGER IF EXISTS %I ON auth.users;', t.tgname) || chr(10)
-         || pg_get_triggerdef(t.oid) || ';' as def
+         || pg_get_triggerdef(t.oid) || ';'
   from pg_trigger t
   where t.tgrelid = 'auth.users'::regclass and not t.tgisinternal
-  order by t.tgname" 2>/dev/null \
-  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const rows=JSON.parse(s).rows;if(!rows.length)throw new Error("Aucun trigger trouvé sur auth.users");console.log(rows.map(r=>r.def).join("\n\n"))})' \
-  > "$DEST/auth_triggers.sql"
+  order by t.tgname" > "$DEST/auth_triggers.sql"
+if [ ! -s "$DEST/auth_triggers.sql" ]; then
+  echo "Aucun trigger trouvé sur auth.users" >&2
+  exit 1
+fi
 
 echo "→ Fichiers des factures"
 node --env-file=.env.local scripts/backup-storage.mjs "$DEST/factures"
@@ -46,4 +79,7 @@ echo "→ Compression"
 tar -czf "$BACKUP_ROOT/$NAME.tar.gz" -C "$BACKUP_ROOT" "$NAME"
 rm -rf "$DEST"
 
-echo "Sauvegarde terminée : $BACKUP_ROOT/$NAME.tar.gz"
+echo "→ Suppression des archives de plus de $KEEP_DAYS jours"
+find "$BACKUP_ROOT" -maxdepth 1 -name '*.tar.gz' -mtime +"$KEEP_DAYS" -print -delete
+
+echo "$(date '+%F %T') Sauvegarde terminée : $BACKUP_ROOT/$NAME.tar.gz"
