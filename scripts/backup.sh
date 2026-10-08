@@ -8,7 +8,7 @@
 #
 # Usage : ./scripts/backup.sh [dossier]   (défaut : ~/Backups/ovni-compta)
 # Résultat : <dossier>/AAAA-MM-JJ_HHMM.tar.gz ; les archives de plus de
-# KEEP_DAYS jours (défaut 56 = 8 semaines) sont supprimées.
+# KEEP_DAYS jours (défaut 7) sont supprimées.
 #
 # Restauration (dans cet ordre) : schema.sql, data.sql, auth_triggers.sql,
 # puis renvoyer les PDF de factures/ dans le bucket.
@@ -26,7 +26,7 @@ if [ -z "$SUPABASE_DB_URL" ]; then
 fi
 
 BACKUP_ROOT="${1:-$HOME/Backups/ovni-compta}"
-KEEP_DAYS="${KEEP_DAYS:-56}"
+KEEP_DAYS="${KEEP_DAYS:-7}"
 NAME="$(date +%F_%H%M)"
 DEST="$BACKUP_ROOT/$NAME"
 mkdir -p "$DEST"
